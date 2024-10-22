@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { sendEmail } from "@/libs/mailgun";
 import config from "@/config";
+import crypto from "crypto";
 
 // This route is used to receive emails from Mailgun and forward them to our customer support email.
 // See more: https://shipfa.st/docs/features/emails
@@ -8,6 +9,21 @@ export async function POST(req) {
   try {
     // extract the email content, subject and sender
     const formData = await req.formData();
+
+    const timestamp = formData.get("timestamp");
+    const token = formData.get("token");
+    const signature = formData.get("signature");
+
+    const value = timestamp + token;
+    const hash = crypto
+      .createHmac("sha256", process.env.MAILGUN_API_KEY)
+      .update(value)
+      .digest("hex");
+
+    if (hash !== signature) {
+      return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+    }
+
     const sender = formData.get("From");
     const subject = formData.get("Subject");
     const html = formData.get("body-html");
