@@ -6,27 +6,31 @@ import Lead from "@/models/Lead";
 // The API call is initiated by <ButtonLead /> component
 // Duplicate emails just return 200 OK
 export async function POST(req) {
-  await connectMongo();
+	await connectMongo();
 
-  const body = await req.json();
+	const body = await req.json();
 
-  if (!body.email) {
-    return NextResponse.json({ error: "Email is required" }, { status: 400 });
-  }
+	if (!body.email) {
+		return NextResponse.json(
+			{ error: "Email is required" },
+			{ status: 400 }
+		);
+	}
 
-  try {
-    const lead = await Lead.findOne({ email: body.email });
+	try {
+		// Here you can add your own logic
+		// For instance, sending a welcome email (use the the sendEmail helper function from /libs/mailgun)
+		// For instance, saving the lead in the database (uncomment the code below)
 
-    if (!lead) {
-      await Lead.create({ email: body.email });
+		// const lead = await Lead.findOne({ email: body.email });
 
-      // Here you can add your own logic
-      // For instance, sending a welcome email (use the the sendEmail helper function from /libs/mailgun)
-    }
+		// if (!lead) {
+		// 	await Lead.create({ email: body.email });
+		// }
 
-    return NextResponse.json({});
-  } catch (e) {
-    console.error(e);
-    return NextResponse.json({ error: e.message }, { status: 500 });
-  }
+		return NextResponse.json({});
+	} catch (e) {
+		console.error(e);
+		return NextResponse.json({ error: e.message }, { status: 500 });
+	}
 }
