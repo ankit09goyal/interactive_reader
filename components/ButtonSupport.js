@@ -10,10 +10,10 @@ const ButtonSupport = () => {
     if (config.crisp?.id) {
       Crisp.chat.show();
       Crisp.chat.open();
-    } else if (config.mailgun?.supportEmail) {
+    } else if (config.resend?.supportEmail) {
       // open default email client in new window with "need help with ${config.appName}" as subject
       window.open(
-        `mailto:${config.mailgun.supportEmail}?subject=Need help with ${config.appName}`,
+        `mailto:${config.resend.supportEmail}?subject=Need help with ${config.appName}`,
         "_blank"
       );
     }
