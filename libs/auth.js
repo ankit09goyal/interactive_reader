@@ -4,6 +4,8 @@ import GoogleProvider from "next-auth/providers/google"
 import EmailProvider from "next-auth/providers/email"
 import config from "@/config"
 import connectMongo from "./mongo"
+import connectMongoose from "./mongoose"
+import User from "@/models/User"
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   
@@ -51,9 +53,29 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ...(connectMongo && { adapter: MongoDBAdapter(connectMongo) }),
 
   callbacks: {
+    jwt: async ({ token, user, trigger }) => {
+      // On initial sign in, user object is available
+      if (user) {
+        token.role = user.role || "user";
+      }
+      // Refresh role from database on session update or if role not set
+      if (trigger === "update" || !token.role) {
+        try {
+          await connectMongoose();
+          const dbUser = await User.findById(token.sub).select("role").lean();
+          if (dbUser) {
+            token.role = dbUser.role || "user";
+          }
+        } catch (error) {
+          console.error("Error fetching user role:", error);
+        }
+      }
+      return token;
+    },
     session: async ({ session, token }) => {
       if (session?.user && token.sub) {
         session.user.id = token.sub;
+        session.user.role = token.role || "user";
       }
       return session;
     },

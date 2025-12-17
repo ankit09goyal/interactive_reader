@@ -34,6 +34,10 @@ const nextConfig = {
     
     return config;
   },
+  turbopack: {
+    // Empty config to silence Turbopack warning
+    // The webpack config above is still needed for MongoDB dependency handling
+  },
 };
 
 module.exports = nextConfig;

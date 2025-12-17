@@ -36,6 +36,13 @@ const userSchema = mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    // User role - determines access level (admin has full permissions, user has standard access)
+    role: {
+      type: String,
+      enum: ["user", "admin"],
+      default: "user",
+      index: true,
+    },
   },
   {
     timestamps: true,
