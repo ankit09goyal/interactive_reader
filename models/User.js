@@ -43,6 +43,15 @@ const userSchema = mongoose.Schema(
       default: "user",
       index: true,
     },
+    // Array of admin user IDs who added this user to the system
+    // Multiple admins can add the same user (e.g., user buys books from different admins)
+    addedBy: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+        index: true,
+      },
+    ],
   },
   {
     timestamps: true,

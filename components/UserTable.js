@@ -10,12 +10,24 @@ export default function UserTable({ users: initialUsers }) {
   const [users, setUsers] = useState(initialUsers);
   const [searchQuery, setSearchQuery] = useState("");
   const [deletingId, setDeletingId] = useState(null);
+  const [filterAccess, setFilterAccess] = useState("all"); // "all", "with-access", "no-access"
 
-  const filteredUsers = users.filter(
-    (user) =>
+  const filteredUsers = users.filter((user) => {
+    // Filter by search query
+    const matchesSearch =
       user.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.email?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+      user.email?.toLowerCase().includes(searchQuery.toLowerCase());
+
+    // Filter by book access status
+    let matchesAccess = true;
+    if (filterAccess === "with-access") {
+      matchesAccess = user.hasBookAccess === true;
+    } else if (filterAccess === "no-access") {
+      matchesAccess = user.hasBookAccess === false;
+    }
+
+    return matchesSearch && matchesAccess;
+  });
 
   const handleRoleChange = (userId, newRole) => {
     setUsers((prev) =>
@@ -26,15 +38,22 @@ export default function UserTable({ users: initialUsers }) {
   };
 
   const handleDeleteUser = async (userId, userName) => {
-    if (!confirm(`Are you sure you want to delete ${userName || "this user"}?`)) {
+    if (
+      !confirm(`Are you sure you want to delete ${userName || "this user"}?`)
+    ) {
       return;
     }
 
     setDeletingId(userId);
     try {
-      await apiClient.delete(`/admin/users/${userId}`);
+      const response = await apiClient.delete(`/admin/users/${userId}`);
+      if (response.softDeleted) {
+        // User was only removed from admin's list, not fully deleted
+        toast.success("User removed from your list");
+      } else {
+        toast.success("User deleted successfully");
+      }
       setUsers((prev) => prev.filter((user) => user._id !== userId));
-      toast.success("User deleted successfully");
     } catch (error) {
       toast.error(error.message || "Failed to delete user");
     } finally {
@@ -53,8 +72,8 @@ export default function UserTable({ users: initialUsers }) {
 
   return (
     <div className="space-y-4">
-      {/* Search */}
-      <div className="flex items-center gap-4">
+      {/* Search and Filter */}
+      <div className="flex items-center gap-4 flex-wrap">
         <div className="relative flex-1 max-w-md">
           <input
             type="text"
@@ -78,6 +97,17 @@ export default function UserTable({ users: initialUsers }) {
             />
           </svg>
         </div>
+
+        {/* Book Access Filter */}
+        <select
+          value={filterAccess}
+          onChange={(e) => setFilterAccess(e.target.value)}
+          className="select select-bordered"
+        >
+          <option value="all">All Users</option>
+          <option value="with-access">With Book Access</option>
+          <option value="no-access">No Book Access</option>
+        </select>
       </div>
 
       {/* Table */}
@@ -88,7 +118,7 @@ export default function UserTable({ users: initialUsers }) {
               <tr className="bg-base-300">
                 <th>User</th>
                 <th>Role</th>
-                <th>Status</th>
+                <th>Book Access</th>
                 <th>Joined</th>
                 <th>Actions</th>
               </tr>
@@ -96,13 +126,25 @@ export default function UserTable({ users: initialUsers }) {
             <tbody>
               {filteredUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="text-center py-8 text-base-content/70">
-                    {searchQuery ? "No users found matching your search" : "No users found"}
+                  <td
+                    colSpan={5}
+                    className="text-center py-8 text-base-content/70"
+                  >
+                    {searchQuery || filterAccess !== "all"
+                      ? "No users found matching your filters"
+                      : "No users found"}
                   </td>
                 </tr>
               ) : (
                 filteredUsers.map((user) => (
-                  <tr key={user._id} className="hover">
+                  <tr
+                    key={user._id}
+                    className={`hover ${
+                      user.hasBookAccess === false
+                        ? "bg-warning/10 border-l-4 border-l-warning"
+                        : ""
+                    }`}
+                  >
                     <td>
                       <div className="flex items-center gap-3">
                         <div className="avatar">
@@ -117,14 +159,20 @@ export default function UserTable({ users: initialUsers }) {
                               />
                             ) : (
                               <div className="w-full h-full flex items-center justify-center text-lg font-semibold text-base-content/50">
-                                {(user.name || user.email || "U").charAt(0).toUpperCase()}
+                                {(user.name || user.email || "U")
+                                  .charAt(0)
+                                  .toUpperCase()}
                               </div>
                             )}
                           </div>
                         </div>
                         <div>
-                          <div className="font-semibold">{user.name || "No name"}</div>
-                          <div className="text-sm text-base-content/70">{user.email}</div>
+                          <div className="font-semibold">
+                            {user.name || "No name"}
+                          </div>
+                          <div className="text-sm text-base-content/70">
+                            {user.email}
+                          </div>
                         </div>
                       </div>
                     </td>
@@ -136,7 +184,7 @@ export default function UserTable({ users: initialUsers }) {
                       />
                     </td>
                     <td>
-                      {user.hasAccess ? (
+                      {user.hasBookAccess ? (
                         <span className="badge badge-success gap-1">
                           <svg
                             xmlns="http://www.w3.org/2000/svg"
@@ -149,13 +197,30 @@ export default function UserTable({ users: initialUsers }) {
                               strokeLinecap="round"
                               strokeLinejoin="round"
                               strokeWidth={2}
-                              d="M5 13l4 4L19 7"
+                              d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
                             />
                           </svg>
-                          Paid
+                          {user.bookAccessCount}{" "}
+                          {user.bookAccessCount === 1 ? "book" : "books"}
                         </span>
                       ) : (
-                        <span className="badge badge-ghost">Free</span>
+                        <span className="badge badge-warning gap-1">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-3 w-3"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                            />
+                          </svg>
+                          No access
+                        </span>
                       )}
                     </td>
                     <td className="text-sm text-base-content/70">
@@ -197,4 +262,3 @@ export default function UserTable({ users: initialUsers }) {
     </div>
   );
 }
-
