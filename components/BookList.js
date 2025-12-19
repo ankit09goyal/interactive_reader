@@ -3,10 +3,12 @@
 import { useState, useEffect } from "react";
 import { toast } from "react-hot-toast";
 import BookReplaceModal from "./BookReplaceModal";
+import BookDeleteModal from "./BookDeleteModal";
 
 export default function BookList({ books: initialBooks, onBooksChange }) {
   const [books, setBooks] = useState(initialBooks);
   const [deletingId, setDeletingId] = useState(null);
+  const [deleteModalBook, setDeleteModalBook] = useState(null);
   const [replaceModalBook, setReplaceModalBook] = useState(null);
 
   // Sync books state when initialBooks prop changes (e.g., when a new book is uploaded)
@@ -14,16 +16,16 @@ export default function BookList({ books: initialBooks, onBooksChange }) {
     setBooks(initialBooks);
   }, [initialBooks]);
 
-  const handleDeleteBook = async (bookId, bookTitle) => {
-    if (
-      !confirm(
-        `Are you sure you want to delete "${bookTitle}"? This action cannot be undone.`
-      )
-    ) {
-      return;
-    }
+  const handleDeleteClick = (book) => {
+    setDeleteModalBook(book);
+  };
 
+  const handleDeleteConfirm = async () => {
+    if (!deleteModalBook) return;
+
+    const bookId = deleteModalBook._id;
     setDeletingId(bookId);
+
     try {
       const response = await fetch(`/api/admin/books/${bookId}`, {
         method: "DELETE",
@@ -39,6 +41,7 @@ export default function BookList({ books: initialBooks, onBooksChange }) {
       setBooks(updatedBooks);
       onBooksChange?.(updatedBooks);
       toast.success("Book deleted successfully");
+      setDeleteModalBook(null);
     } catch (error) {
       toast.error(error.message || "Failed to delete book");
     } finally {
@@ -224,7 +227,7 @@ export default function BookList({ books: initialBooks, onBooksChange }) {
 
                 {/* Delete */}
                 <button
-                  onClick={() => handleDeleteBook(book._id, book.title)}
+                  onClick={() => handleDeleteClick(book)}
                   disabled={deletingId === book._id}
                   className="btn btn-ghost btn-sm text-error hover:bg-error/10"
                   title="Delete"
@@ -260,6 +263,16 @@ export default function BookList({ books: initialBooks, onBooksChange }) {
           book={replaceModalBook}
           onClose={() => setReplaceModalBook(null)}
           onSuccess={handleReplaceSuccess}
+        />
+      )}
+
+      {/* Delete Modal */}
+      {deleteModalBook && (
+        <BookDeleteModal
+          book={deleteModalBook}
+          onClose={() => setDeleteModalBook(null)}
+          onConfirm={handleDeleteConfirm}
+          isDeleting={deletingId === deleteModalBook._id}
         />
       )}
     </>
