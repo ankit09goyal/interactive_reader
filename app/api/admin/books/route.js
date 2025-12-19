@@ -136,13 +136,25 @@ export async function POST(req) {
       uploadedBy: session.user.id,
     });
 
+    // Transform book to match the format expected by the frontend
+    const transformedBook = {
+      _id: book._id.toString(),
+      title: book.title,
+      author: book.author,
+      description: book.description,
+      fileName: book.fileName,
+      filePath: book.filePath,
+      fileSize: book.fileSize,
+      mimeType: book.mimeType,
+      uploadedBy: book.uploadedBy?.toString(),
+      createdAt: book.createdAt?.toISOString(),
+      fileSizeFormatted: formatFileSize(book.fileSize),
+      fileType: book.mimeType === "application/pdf" ? "PDF" : "EPUB",
+    };
+
     return NextResponse.json(
       {
-        book: {
-          ...book.toJSON(),
-          fileSizeFormatted: formatFileSize(book.fileSize),
-          fileType: book.mimeType === "application/pdf" ? "PDF" : "EPUB",
-        },
+        book: transformedBook,
       },
       { status: 201 }
     );
