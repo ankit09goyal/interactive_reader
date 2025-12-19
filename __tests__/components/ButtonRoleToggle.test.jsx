@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
@@ -29,9 +29,16 @@ describe("ButtonRoleToggle Component", () => {
   };
 
   beforeEach(() => {
+    // Restore all mocks first to clean up any previous spies
+    vi.restoreAllMocks();
     vi.clearAllMocks();
-    // Mock window.confirm
+    // Mock window.confirm - default to returning true
     vi.spyOn(window, "confirm").mockImplementation(() => true);
+  });
+
+  afterEach(() => {
+    // Restore spies after each test to prevent spy stacking
+    vi.restoreAllMocks();
   });
 
   it("should render with user role", () => {
@@ -56,7 +63,8 @@ describe("ButtonRoleToggle Component", () => {
   });
 
   it("should not make API call if confirm is cancelled", async () => {
-    vi.spyOn(window, "confirm").mockImplementation(() => false);
+    // Restore previous spy before creating new one to prevent stacking
+    vi.mocked(window.confirm).mockImplementation(() => false);
 
     render(<ButtonRoleToggle {...defaultProps} />);
 

@@ -1,19 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-// Mock dependencies
-const mockToast = {
-  success: vi.fn(),
-  error: vi.fn(),
-};
-
-const mockSignIn = vi.fn();
-
+// Mock dependencies - these need to be inside vi.mock factories to survive resetModules
 vi.mock("react-hot-toast", () => ({
-  toast: mockToast,
+  toast: {
+    success: vi.fn(),
+    error: vi.fn(),
+  },
 }));
 
 vi.mock("next-auth/react", () => ({
-  signIn: mockSignIn,
+  signIn: vi.fn(),
 }));
 
 vi.mock("@/config", () => ({
@@ -24,49 +20,74 @@ vi.mock("@/config", () => ({
   },
 }));
 
-// Mock axios create
-const mockInterceptorsUse = vi.fn();
-const mockAxiosInstance = {
-  interceptors: {
-    response: {
-      use: mockInterceptorsUse,
+vi.mock("axios", () => {
+  const mockInterceptorsUse = vi.fn();
+  return {
+    default: {
+      create: vi.fn(() => ({
+        interceptors: {
+          response: {
+            use: mockInterceptorsUse,
+          },
+        },
+        get: vi.fn(),
+        post: vi.fn(),
+        put: vi.fn(),
+        delete: vi.fn(),
+      })),
     },
-  },
-  get: vi.fn(),
-  post: vi.fn(),
-  put: vi.fn(),
-  delete: vi.fn(),
-};
-
-vi.mock("axios", () => ({
-  default: {
-    create: vi.fn(() => mockAxiosInstance),
-  },
-}));
+  };
+});
 
 describe("API Client", () => {
   let successHandler;
   let errorHandler;
+  let mockToast;
+  let mockSignIn;
+  let mockAxiosCreate;
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    // Reset modules to get fresh imports
+    vi.resetModules();
+
+    // Re-import mocked modules after resetModules
+    const toastModule = await import("react-hot-toast");
+    mockToast = toastModule.toast;
+
+    const authModule = await import("next-auth/react");
+    mockSignIn = authModule.signIn;
+
+    const axiosModule = await import("axios");
+    mockAxiosCreate = axiosModule.default.create;
+
+    // Clear mock call history
     vi.clearAllMocks();
 
-    // Reset the mock interceptors
-    mockInterceptorsUse.mockImplementation((success, error) => {
-      successHandler = success;
-      errorHandler = error;
+    // Setup interceptor capture
+    mockAxiosCreate.mockImplementation(() => {
+      const instance = {
+        interceptors: {
+          response: {
+            use: vi.fn((success, error) => {
+              successHandler = success;
+              errorHandler = error;
+            }),
+          },
+        },
+        get: vi.fn(),
+        post: vi.fn(),
+        put: vi.fn(),
+        delete: vi.fn(),
+      };
+      return instance;
     });
-
-    // Re-import to trigger the interceptor setup
-    vi.resetModules();
   });
 
   describe("Response Interceptor Setup", () => {
     it("should create axios instance with /api baseURL", async () => {
-      const axios = await import("axios");
       await import("@/libs/api");
 
-      expect(axios.default.create).toHaveBeenCalledWith({
+      expect(mockAxiosCreate).toHaveBeenCalledWith({
         baseURL: "/api",
       });
     });
@@ -74,10 +95,9 @@ describe("API Client", () => {
     it("should register response interceptors", async () => {
       await import("@/libs/api");
 
-      expect(mockInterceptorsUse).toHaveBeenCalledWith(
-        expect.any(Function),
-        expect.any(Function)
-      );
+      // Verify interceptors were set up (successHandler and errorHandler should be captured)
+      expect(successHandler).toBeDefined();
+      expect(errorHandler).toBeDefined();
     });
   });
 
