@@ -5,6 +5,11 @@ import connectMongo from "@/libs/mongoose";
 import User from "@/models/User";
 import Book from "@/models/Book";
 import UserBookAccess from "@/models/UserBookAccess";
+import EmailTemplate from "@/models/EmailTemplate";
+import {
+  getDefaultEmailTemplate,
+  sendBookAccessNotification,
+} from "@/libs/emailNotifications";
 
 // GET /api/admin/users - List all users added by the current admin
 export async function GET(req) {
@@ -108,7 +113,7 @@ export async function GET(req) {
   }
 }
 
-// POST /api/admin/users - Create or add user to admin's list
+// POST /api/admin/users - Create or add user to admin's list with optional book access and notification
 export async function POST(req) {
   try {
     const session = await auth();
@@ -123,7 +128,14 @@ export async function POST(req) {
     }
 
     const body = await req.json();
-    const { name, email, role = "user" } = body;
+    const {
+      name,
+      email,
+      role = "user",
+      bookIds = [],
+      notifyUser = false,
+      customEmailTemplate,
+    } = body;
 
     if (!email) {
       return NextResponse.json({ error: "Email is required" }, { status: 400 });
@@ -132,56 +144,126 @@ export async function POST(req) {
     await connectMongo();
 
     const adminId = session.user.id;
+    const admin = await User.findById(adminId).select("name email").lean();
+    const adminName = admin?.name || admin?.email?.split("@")[0] || "Admin";
+
+    let user;
+    let isExisting = false;
+    let message = "";
 
     // Check if user already exists
     const existingUser = await User.findOne({ email: email.toLowerCase() });
 
     if (existingUser) {
+      isExisting = true;
       // User exists - add current admin to addedBy array if not already present
       const isAlreadyAdded = existingUser.addedBy?.some(
         (id) => id.toString() === adminId
       );
 
       if (isAlreadyAdded) {
-        // Admin already added this user
-        return NextResponse.json(
-          {
-            user: existingUser,
-            message: "User already in your list",
-            isExisting: true,
-          },
-          { status: 200 }
+        user = existingUser;
+        message = "User already in your list";
+      } else {
+        // Add admin to addedBy array
+        user = await User.findByIdAndUpdate(
+          existingUser._id,
+          { $addToSet: { addedBy: adminId } },
+          { new: true }
         );
+        message = "User added to your list";
       }
-
-      // Add admin to addedBy array
-      const updatedUser = await User.findByIdAndUpdate(
-        existingUser._id,
-        { $addToSet: { addedBy: adminId } },
-        { new: true }
-      );
-
-      return NextResponse.json(
-        {
-          user: updatedUser,
-          message: "User added to your list",
-          isExisting: true,
-        },
-        { status: 200 }
-      );
+    } else {
+      // Create new user with addedBy array containing current admin
+      user = await User.create({
+        name,
+        email: email.toLowerCase(),
+        role,
+        addedBy: [adminId],
+      });
+      message = "User created successfully";
     }
 
-    // Create new user with addedBy array containing current admin
-    const user = await User.create({
-      name,
-      email: email.toLowerCase(),
-      role,
-      addedBy: [adminId],
+    // Handle book access if bookIds provided
+    let booksGranted = [];
+    if (bookIds && bookIds.length > 0) {
+      // Verify all books belong to the current admin
+      const adminBooks = await Book.find({
+        _id: { $in: bookIds },
+        uploadedBy: adminId,
+      })
+        .select("_id title author")
+        .lean();
+
+      if (adminBooks.length > 0) {
+        // Create book access records (use upsert to avoid duplicates)
+        const accessRecords = adminBooks.map((book) => ({
+          updateOne: {
+            filter: { userId: user._id, bookId: book._id },
+            update: {
+              $setOnInsert: {
+                userId: user._id,
+                bookId: book._id,
+                grantedBy: adminId,
+              },
+            },
+            upsert: true,
+          },
+        }));
+
+        await UserBookAccess.bulkWrite(accessRecords);
+        booksGranted = adminBooks;
+        message += `. Access granted to ${adminBooks.length} book(s)`;
+      }
+    }
+
+    // Send email notification if requested and books were assigned
+    let emailSent = false;
+    if (notifyUser && booksGranted.length > 0) {
+      // Get email template (custom, saved, or default)
+      let template;
+      if (customEmailTemplate) {
+        template = customEmailTemplate;
+      } else {
+        const savedTemplate = await EmailTemplate.findOne({ adminId }).lean();
+        template = savedTemplate || getDefaultEmailTemplate();
+      }
+
+      const emailResult = await sendBookAccessNotification({
+        user: { name: user.name, email: user.email },
+        books: booksGranted,
+        adminName,
+        template,
+      });
+
+      emailSent = emailResult !== null;
+      if (emailSent) {
+        message += ". Notification email sent";
+      }
+    }
+
+    // Calculate book access count for response
+    const bookAccessCount = await UserBookAccess.countDocuments({
+      userId: user._id,
+      bookId: {
+        $in: await Book.find({ uploadedBy: adminId }).distinct("_id"),
+      },
     });
 
     return NextResponse.json(
-      { user, message: "User created successfully", isExisting: false },
-      { status: 201 }
+      {
+        user: {
+          ...user.toJSON(),
+          _id: user._id.toString(),
+          hasBookAccess: bookAccessCount > 0,
+          bookAccessCount,
+        },
+        message,
+        isExisting,
+        booksGranted: booksGranted.length,
+        emailSent,
+      },
+      { status: isExisting ? 200 : 201 }
     );
   } catch (error) {
     console.error("Error creating user:", error);

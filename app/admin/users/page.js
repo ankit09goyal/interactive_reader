@@ -12,7 +12,7 @@ async function getUsers(adminId) {
 
   // Get all users added by this admin
   const users = await User.find({ addedBy: adminId })
-    .select("name email image role hasAccess createdAt addedBy")
+    .select("name email image role hasAccess createdAt")
     .sort({ createdAt: -1 })
     .lean();
 
@@ -40,8 +40,12 @@ async function getUsers(adminId) {
   return users.map((user) => {
     const userIdStr = user._id.toString();
     return {
-      ...user,
       _id: userIdStr,
+      name: user.name,
+      email: user.email,
+      image: user.image,
+      role: user.role,
+      hasAccess: user.hasAccess,
       createdAt: user.createdAt?.toISOString(),
       hasBookAccess: accessMap[userIdStr]?.length > 0,
       bookAccessCount: accessMap[userIdStr]?.length || 0,
@@ -66,16 +70,35 @@ export default async function AdminUsersPage() {
             View and manage users you have added
           </p>
         </div>
-        <div className="flex gap-4 text-sm text-base-content/70">
-          <div>
-            Total: <span className="font-semibold">{users.length}</span> users
-          </div>
-          {usersWithNoAccess > 0 && (
-            <div className="text-warning">
-              <span className="font-semibold">{usersWithNoAccess}</span> without
-              book access
+        <div className="flex items-center gap-4">
+          <div className="flex gap-4 text-sm text-base-content/70">
+            <div>
+              Total: <span className="font-semibold">{users.length}</span> users
             </div>
-          )}
+            {usersWithNoAccess > 0 && (
+              <div className="text-warning">
+                <span className="font-semibold">{usersWithNoAccess}</span>{" "}
+                without book access
+              </div>
+            )}
+          </div>
+          <a href="/admin/users/add" className="btn btn-primary btn-sm gap-2">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={1.5}
+              stroke="currentColor"
+              className="w-5 h-5"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M12 4.5v15m7.5-7.5h-15"
+              />
+            </svg>
+            Add User
+          </a>
         </div>
       </div>
 
