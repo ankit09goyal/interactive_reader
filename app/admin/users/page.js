@@ -16,8 +16,17 @@ async function getUsers(adminId) {
     .sort({ createdAt: -1 })
     .lean();
 
-  // Get admin's book IDs for calculating book access
-  const adminBookIds = await Book.find({ uploadedBy: adminId }).distinct("_id");
+  // Get admin's books with their IDs and titles
+  const adminBooks = await Book.find({ uploadedBy: adminId })
+    .select("_id title")
+    .lean();
+  const adminBookIds = adminBooks.map((b) => b._id);
+
+  // Create a map of book ID to book title
+  const bookIdToTitle = {};
+  adminBooks.forEach((book) => {
+    bookIdToTitle[book._id.toString()] = book.title;
+  });
 
   // Get book access for these users
   const userIds = users.map((u) => u._id);
@@ -26,19 +35,25 @@ async function getUsers(adminId) {
     bookId: { $in: adminBookIds },
   }).lean();
 
-  // Map access by user ID
+  // Map access by user ID with book titles
   const accessMap = {};
   userBookAccess.forEach((access) => {
     const userIdStr = access.userId.toString();
+    const bookIdStr = access.bookId.toString();
     if (!accessMap[userIdStr]) {
       accessMap[userIdStr] = [];
     }
-    accessMap[userIdStr].push(access.bookId);
+    // Store book title instead of just book ID
+    const bookTitle = bookIdToTitle[bookIdStr];
+    if (bookTitle) {
+      accessMap[userIdStr].push(bookTitle);
+    }
   });
 
   // Add book access status to each user
   return users.map((user) => {
     const userIdStr = user._id.toString();
+    const bookTitles = accessMap[userIdStr] || [];
     return {
       _id: userIdStr,
       name: user.name,
@@ -47,8 +62,9 @@ async function getUsers(adminId) {
       role: user.role,
       hasAccess: user.hasAccess,
       createdAt: user.createdAt?.toISOString(),
-      hasBookAccess: accessMap[userIdStr]?.length > 0,
-      bookAccessCount: accessMap[userIdStr]?.length || 0,
+      hasBookAccess: bookTitles.length > 0,
+      bookAccessCount: bookTitles.length,
+      bookTitles: bookTitles, // Add array of book titles
     };
   });
 }

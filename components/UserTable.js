@@ -119,6 +119,7 @@ export default function UserTable({ users: initialUsers }) {
                 <th>User</th>
                 <th>Role</th>
                 <th>Book Access</th>
+                <th>Books</th>
                 <th>Joined</th>
                 <th>Actions</th>
               </tr>
@@ -127,7 +128,7 @@ export default function UserTable({ users: initialUsers }) {
               {filteredUsers.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={5}
+                    colSpan={6}
                     className="text-center py-8 text-base-content/70"
                   >
                     {searchQuery || filterAccess !== "all"
@@ -220,6 +221,24 @@ export default function UserTable({ users: initialUsers }) {
                             />
                           </svg>
                           No access
+                        </span>
+                      )}
+                    </td>
+                    <td className="align-top">
+                      {user.bookTitles && user.bookTitles.length > 0 ? (
+                        <div className="flex flex-col gap-1 py-1">
+                          {user.bookTitles.map((bookTitle, index) => (
+                            <span
+                              key={index}
+                              className="badge badge-outline badge-sm text-xs whitespace-normal break-words"
+                            >
+                              {bookTitle}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-sm text-base-content/50">
+                          No books
                         </span>
                       )}
                     </td>
