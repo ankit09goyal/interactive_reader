@@ -142,40 +142,6 @@ export default async function ReaderPage({ params }) {
   return (
     <main className="min-h-screen bg-base-200">
       <section className="w-full h-screen flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between flex-wrap gap-4 p-4">
-          <div className="flex items-center gap-4">
-            <Link href="/dashboard" className="btn btn-ghost btn-sm gap-2">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M10 19l-7-7m0 0l7-7m-7 7h18"
-                />
-              </svg>
-              Back
-            </Link>
-            <div>
-              <h1 className="text-xl md:text-2xl font-bold">{book.title}</h1>
-              <p className="text-sm text-base-content/70">by {book.author}</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <span className="badge badge-sm">{book.fileType}</span>
-            <span className="badge badge-sm badge-ghost">
-              {book.fileSizeFormatted}
-            </span>
-          </div>
-        </div>
-
         {/* PDF Reader - fills remaining space */}
         <div className="flex-1 min-h-0">
           <PDFReader filePath={book.filePath} title={book.title} />

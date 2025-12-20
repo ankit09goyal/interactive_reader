@@ -2,16 +2,19 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import apiClient from "@/libs/api";
+import Link from "next/link";
 
-export default function PDFReader({ filePath, title }) {
+export default function PDFReader({
+  filePath,
+  title,
+  backHref = "/dashboard",
+}) {
   const containerRef = useRef(null);
   const viewerRef = useRef(null);
   const pdfjsLibRef = useRef(null);
   const canvasRefs = useRef(new Map());
   const renderTasksRef = useRef(new Map()); // Track active render tasks per page
   const observerRef = useRef(null);
-  const lastScrollY = useRef(0);
-  const toolbarTimeoutRef = useRef(null);
   const renderedPagesRef = useRef(new Set([1]));
   const isTransitioningModeRef = useRef(false); // Prevent page updates during mode transitions
   const targetPageRef = useRef(1); // Track target page during mode switch
@@ -28,7 +31,6 @@ export default function PDFReader({ filePath, title }) {
 
   // View mode state
   const [viewMode, setViewMode] = useState("one-page"); // "one-page" or "continuous"
-  const [toolbarVisible, setToolbarVisible] = useState(true);
   const [renderedPages, setRenderedPages] = useState(new Set([1]));
 
   // Load user preferences in background (non-blocking)
@@ -190,7 +192,7 @@ export default function PDFReader({ filePath, title }) {
         if (fitToViewport && viewMode === "one-page") {
           // For one-page mode: fit to viewport while maintaining aspect ratio
           const container = containerRef.current;
-          const toolbarHeight = toolbarVisible ? 56 : 0;
+          const toolbarHeight = 56;
           const footerHeight = 40;
           const padding = 32;
 
@@ -248,7 +250,7 @@ export default function PDFReader({ filePath, title }) {
         return false;
       }
     },
-    [pdfDoc, scale, viewMode, toolbarVisible, isFullscreen]
+    [pdfDoc, scale, viewMode, isFullscreen]
   );
 
   // Render current page for one-page mode
@@ -277,7 +279,6 @@ export default function PDFReader({ filePath, title }) {
     currentPage,
     scale,
     isLoading,
-    toolbarVisible,
     isFullscreen,
     renderCurrentPage,
   ]);
@@ -367,59 +368,7 @@ export default function PDFReader({ filePath, title }) {
   }, [pdfDoc, viewMode, renderCurrentPage]);
 
   // Auto-hide toolbar logic for one-page mode
-  useEffect(() => {
-    if (viewMode !== "one-page") {
-      setToolbarVisible(true);
-      return;
-    }
-
-    const handleScroll = () => {
-      const currentScrollY = window.scrollY;
-      const scrollingUp = currentScrollY < lastScrollY.current;
-
-      if (scrollingUp || currentScrollY < 50) {
-        setToolbarVisible(true);
-        // Clear any existing timeout
-        if (toolbarTimeoutRef.current) {
-          clearTimeout(toolbarTimeoutRef.current);
-        }
-        // Auto-hide after 3 seconds of no scrolling
-        toolbarTimeoutRef.current = setTimeout(() => {
-          if (window.scrollY > 50) {
-            setToolbarVisible(false);
-          }
-        }, 3000);
-      } else if (currentScrollY > 100) {
-        setToolbarVisible(false);
-      }
-
-      lastScrollY.current = currentScrollY;
-    };
-
-    const handleMouseMove = (e) => {
-      // Show toolbar when mouse is near top of screen
-      if (e.clientY < 60) {
-        setToolbarVisible(true);
-        if (toolbarTimeoutRef.current) {
-          clearTimeout(toolbarTimeoutRef.current);
-        }
-        toolbarTimeoutRef.current = setTimeout(() => {
-          setToolbarVisible(false);
-        }, 3000);
-      }
-    };
-
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    window.addEventListener("mousemove", handleMouseMove, { passive: true });
-
-    return () => {
-      window.removeEventListener("scroll", handleScroll);
-      window.removeEventListener("mousemove", handleMouseMove);
-      if (toolbarTimeoutRef.current) {
-        clearTimeout(toolbarTimeoutRef.current);
-      }
-    };
-  }, [viewMode]);
+  // Toolbar always visible now; no auto-hide needed
 
   // Navigation handlers
   const goToPreviousPage = useCallback(() => {
@@ -571,15 +520,32 @@ export default function PDFReader({ filePath, title }) {
       }`}
     >
       {/* Toolbar - auto-hides in one-page mode, always visible in continuous mode */}
-      <div
-        className={`flex items-center justify-between p-3 bg-base-200 border-b border-base-300 flex-wrap gap-2 transition-all duration-300 sticky top-0 z-50 ${
-          viewMode === "one-page" && !toolbarVisible
-            ? "opacity-0 -translate-y-full"
-            : "opacity-100 translate-y-0"
-        }`}
-        onMouseEnter={() => viewMode === "one-page" && setToolbarVisible(true)}
-      >
-        {/* Page Navigation */}
+      <div className="flex items-center justify-between p-3 bg-base-200 border-b border-base-300 flex-wrap gap-2 sticky top-0 z-50">
+        {/* Left: Back + Title */}
+        <div className="flex items-center gap-2">
+          <Link href={backHref} className="btn btn-ghost btn-sm gap-1">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-5 w-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M10 19l-7-7m0 0l7-7m-7 7h18"
+              />
+            </svg>
+            <span className="hidden sm:inline text-xs">Back</span>
+          </Link>
+          <div className="flex flex-col">
+            <span className="text-sm font-semibold leading-tight">{title}</span>
+          </div>
+        </div>
+
+        {/* Center: Page Navigation */}
         <div className="flex items-center gap-2">
           <button
             onClick={goToPreviousPage}
@@ -639,64 +605,8 @@ export default function PDFReader({ filePath, title }) {
           </button>
         </div>
 
-        {/* Zoom Controls */}
-        <div className="flex items-center gap-1">
-          <button
-            onClick={zoomOut}
-            disabled={scale <= 0.5 || isLoading}
-            className="btn btn-ghost btn-sm btn-square"
-            title="Zoom out (-)"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM13 10H7"
-              />
-            </svg>
-          </button>
-
-          <button
-            onClick={resetZoom}
-            className="btn btn-ghost btn-sm min-w-[60px]"
-            title="Reset zoom (0)"
-          >
-            {Math.round(scale * 100)}%
-          </button>
-
-          <button
-            onClick={zoomIn}
-            disabled={scale >= 3 || isLoading}
-            className="btn btn-ghost btn-sm btn-square"
-            title="Zoom in (+)"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7"
-              />
-            </svg>
-          </button>
-        </div>
-
-        {/* View Mode Toggle & Fullscreen */}
+        {/* Right: View Mode Toggle */}
         <div className="flex items-center gap-2">
-          {/* View Mode Toggle */}
           <button
             onClick={toggleViewMode}
             className="btn btn-ghost btn-sm gap-1"
@@ -740,45 +650,6 @@ export default function PDFReader({ filePath, title }) {
             <span className="hidden sm:inline text-xs">
               {viewMode === "one-page" ? "Scroll" : "Page"}
             </span>
-          </button>
-
-          {/* Fullscreen */}
-          <button
-            onClick={toggleFullscreen}
-            className="btn btn-ghost btn-sm btn-square"
-            title={isFullscreen ? "Exit fullscreen (Esc)" : "Fullscreen"}
-          >
-            {isFullscreen ? (
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5l5.25 5.25"
-                />
-              </svg>
-            ) : (
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 4h-4m4 0l-5-5"
-                />
-              </svg>
-            )}
           </button>
         </div>
       </div>
