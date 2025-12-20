@@ -52,6 +52,15 @@ const userSchema = mongoose.Schema(
         index: true,
       },
     ],
+    // User preferences for reader and app settings
+    preferences: {
+      // Reader view mode: "one-page" for Kindle-like single page view, "continuous" for scrolling
+      readerViewMode: {
+        type: String,
+        enum: ["one-page", "continuous"],
+        default: "one-page",
+      },
+    },
   },
   {
     timestamps: true,
