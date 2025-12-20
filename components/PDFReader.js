@@ -13,6 +13,8 @@ export default function PDFReader({ filePath, title }) {
   const lastScrollY = useRef(0);
   const toolbarTimeoutRef = useRef(null);
   const renderedPagesRef = useRef(new Set([1]));
+  const isTransitioningModeRef = useRef(false); // Prevent page updates during mode transitions
+  const targetPageRef = useRef(1); // Track target page during mode switch
   
   const [pdfDoc, setPdfDoc] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -57,13 +59,36 @@ export default function PDFReader({ filePath, title }) {
   // Toggle view mode
   const toggleViewMode = () => {
     const newMode = viewMode === "one-page" ? "continuous" : "one-page";
+    
+    // Save current page before switching
+    targetPageRef.current = currentPage;
+    isTransitioningModeRef.current = true;
+    
     setViewMode(newMode);
     saveViewModePreference(newMode);
+    
     // Reset rendered pages for continuous mode
     if (newMode === "continuous") {
       const newSet = new Set([currentPage]);
       renderedPagesRef.current = newSet;
       setRenderedPages(newSet);
+      
+      // Scroll to the current page after DOM updates
+      setTimeout(() => {
+        const pageElement = document.querySelector(`[data-page="${currentPage}"]`);
+        if (pageElement) {
+          pageElement.scrollIntoView({ behavior: "auto", block: "start" });
+        }
+        // Allow IntersectionObserver to update currentPage again after scroll settles
+        setTimeout(() => {
+          isTransitioningModeRef.current = false;
+        }, 100);
+      }, 50);
+    } else {
+      // Clear transition flag after a short delay for one-page mode
+      setTimeout(() => {
+        isTransitioningModeRef.current = false;
+      }, 100);
     }
   };
 
@@ -256,7 +281,8 @@ export default function PDFReader({ filePath, title }) {
               setRenderedPages((prev) => new Set([...prev, pageNum]));
             }
             // Update current page based on what's most visible
-            if (entry.intersectionRatio > 0.5) {
+            // Skip during mode transition to preserve the intended page
+            if (entry.intersectionRatio > 0.5 && !isTransitioningModeRef.current) {
               setCurrentPage(pageNum);
             }
           }
