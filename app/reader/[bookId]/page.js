@@ -33,7 +33,9 @@ async function getBookWithAccess(bookId, userId) {
 
   // Get the book details
   const book = await Book.findById(bookId)
-    .select("title author description fileName filePath fileSize mimeType createdAt")
+    .select(
+      "title author description fileName filePath fileSize mimeType createdAt"
+    )
     .lean();
 
   if (!book) {
@@ -138,15 +140,12 @@ export default async function ReaderPage({ params }) {
   }
 
   return (
-    <main className="min-h-screen p-4 md:p-8 pb-24">
-      <section className="max-w-6xl mx-auto space-y-4">
+    <main className="min-h-screen bg-base-200">
+      <section className="w-full h-screen flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between flex-wrap gap-4">
+        <div className="flex items-center justify-between flex-wrap gap-4 p-4">
           <div className="flex items-center gap-4">
-            <Link
-              href="/dashboard"
-              className="btn btn-ghost btn-sm gap-2"
-            >
+            <Link href="/dashboard" className="btn btn-ghost btn-sm gap-2">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 className="h-5 w-5"
@@ -177,10 +176,11 @@ export default async function ReaderPage({ params }) {
           </div>
         </div>
 
-        {/* PDF Reader */}
-        <PDFReader filePath={book.filePath} title={book.title} />
+        {/* PDF Reader - fills remaining space */}
+        <div className="flex-1 min-h-0">
+          <PDFReader filePath={book.filePath} title={book.title} />
+        </div>
       </section>
     </main>
   );
 }
-

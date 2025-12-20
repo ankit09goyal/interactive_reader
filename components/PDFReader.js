@@ -15,7 +15,7 @@ export default function PDFReader({ filePath, title }) {
   const renderedPagesRef = useRef(new Set([1]));
   const isTransitioningModeRef = useRef(false); // Prevent page updates during mode transitions
   const targetPageRef = useRef(1); // Track target page during mode switch
-  
+
   const [pdfDoc, setPdfDoc] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
@@ -25,7 +25,7 @@ export default function PDFReader({ filePath, title }) {
   const [isRendering, setIsRendering] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [pdfjsLoaded, setPdfjsLoaded] = useState(false);
-  
+
   // View mode state
   const [viewMode, setViewMode] = useState("one-page"); // "one-page" or "continuous"
   const [toolbarVisible, setToolbarVisible] = useState(true);
@@ -59,23 +59,25 @@ export default function PDFReader({ filePath, title }) {
   // Toggle view mode
   const toggleViewMode = () => {
     const newMode = viewMode === "one-page" ? "continuous" : "one-page";
-    
+
     // Save current page before switching
     targetPageRef.current = currentPage;
     isTransitioningModeRef.current = true;
-    
+
     setViewMode(newMode);
     saveViewModePreference(newMode);
-    
+
     // Reset rendered pages for continuous mode
     if (newMode === "continuous") {
       const newSet = new Set([currentPage]);
       renderedPagesRef.current = newSet;
       setRenderedPages(newSet);
-      
+
       // Scroll to the current page after DOM updates
       setTimeout(() => {
-        const pageElement = document.querySelector(`[data-page="${currentPage}"]`);
+        const pageElement = document.querySelector(
+          `[data-page="${currentPage}"]`
+        );
         if (pageElement) {
           pageElement.scrollIntoView({ behavior: "auto", block: "start" });
         }
@@ -163,81 +165,91 @@ export default function PDFReader({ filePath, title }) {
   }, [filePath, pdfjsLoaded]);
 
   // Render a single page to a canvas
-  const renderPageToCanvas = useCallback(async (pageNum, canvas, fitToViewport = false) => {
-    if (!pdfDoc || !canvas) return false;
+  const renderPageToCanvas = useCallback(
+    async (pageNum, canvas, fitToViewport = false) => {
+      if (!pdfDoc || !canvas) return false;
 
-    // Cancel any existing render task for this page
-    const existingTask = renderTasksRef.current.get(pageNum);
-    if (existingTask) {
+      // Cancel any existing render task for this page
+      const existingTask = renderTasksRef.current.get(pageNum);
+      if (existingTask) {
+        try {
+          existingTask.cancel();
+        } catch (e) {
+          // Ignore cancel errors
+        }
+        renderTasksRef.current.delete(pageNum);
+      }
+
       try {
-        existingTask.cancel();
-      } catch (e) {
-        // Ignore cancel errors
-      }
-      renderTasksRef.current.delete(pageNum);
-    }
+        const page = await pdfDoc.getPage(pageNum);
+        const context = canvas.getContext("2d");
+        const viewport = page.getViewport({ scale: 1 });
 
-    try {
-      const page = await pdfDoc.getPage(pageNum);
-      const context = canvas.getContext("2d");
-      const viewport = page.getViewport({ scale: 1 });
+        let effectiveScale;
 
-      let effectiveScale;
-      
-      if (fitToViewport && viewMode === "one-page") {
-        // For one-page mode: fit to viewport while maintaining aspect ratio
-        const container = containerRef.current;
-        const toolbarHeight = toolbarVisible ? 56 : 0;
-        const footerHeight = 40;
-        const padding = 32;
-        
-        const availableWidth = (container?.clientWidth || window.innerWidth) - padding;
-        const availableHeight = (isFullscreen ? window.innerHeight : Math.min(window.innerHeight * 0.85, 800)) - toolbarHeight - footerHeight - padding;
-        
-        const scaleX = availableWidth / viewport.width;
-        const scaleY = availableHeight / viewport.height;
-        effectiveScale = Math.min(scaleX, scaleY, 2) * scale;
-      } else {
-        // For continuous mode: fit to container width
-        const container = containerRef.current;
-        const containerWidth = container?.clientWidth || 800;
-        const fitScale = (containerWidth - 48) / viewport.width;
-        effectiveScale = scale * Math.min(fitScale, 1.5);
-      }
+        if (fitToViewport && viewMode === "one-page") {
+          // For one-page mode: fit to viewport while maintaining aspect ratio
+          const container = containerRef.current;
+          const toolbarHeight = toolbarVisible ? 56 : 0;
+          const footerHeight = 40;
+          const padding = 32;
 
-      const scaledViewport = page.getViewport({ scale: effectiveScale });
+          const availableWidth =
+            (container?.clientWidth || window.innerWidth) - padding;
+          const availableHeight =
+            (isFullscreen
+              ? window.innerHeight
+              : Math.min(window.innerHeight * 0.85, 800)) -
+            toolbarHeight -
+            footerHeight -
+            padding;
 
-      const pixelRatio = window.devicePixelRatio || 1;
-      canvas.width = scaledViewport.width * pixelRatio;
-      canvas.height = scaledViewport.height * pixelRatio;
-      canvas.style.width = `${scaledViewport.width}px`;
-      canvas.style.height = `${scaledViewport.height}px`;
+          const scaleX = availableWidth / viewport.width;
+          const scaleY = availableHeight / viewport.height;
+          effectiveScale = Math.min(scaleX, scaleY, 2) * scale;
+        } else {
+          // For continuous mode: fit to container width
+          const container = containerRef.current;
+          const containerWidth = container?.clientWidth || 800;
+          const fitScale = (containerWidth - 48) / viewport.width;
+          effectiveScale = scale * Math.min(fitScale, 1.5);
+        }
 
-      context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+        const scaledViewport = page.getViewport({ scale: effectiveScale });
 
-      const renderContext = {
-        canvasContext: context,
-        viewport: scaledViewport,
-      };
+        const pixelRatio = window.devicePixelRatio || 1;
+        canvas.width = scaledViewport.width * pixelRatio;
+        canvas.height = scaledViewport.height * pixelRatio;
+        canvas.style.width = `${scaledViewport.width}px`;
+        canvas.style.height = `${scaledViewport.height}px`;
 
-      // Start render and track the task
-      const renderTask = page.render(renderContext);
-      renderTasksRef.current.set(pageNum, renderTask);
-      
-      await renderTask.promise;
-      
-      // Clean up task reference
-      renderTasksRef.current.delete(pageNum);
-      return true;
-    } catch (err) {
-      // Ignore cancellation errors
-      if (err?.name === "RenderingCancelledException") {
+        context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+
+        const renderContext = {
+          canvasContext: context,
+          viewport: scaledViewport,
+        };
+
+        // Start render and track the task
+        const renderTask = page.render(renderContext);
+        renderTasksRef.current.set(pageNum, renderTask);
+
+        await renderTask.promise;
+
+        // Clean up task reference
+        renderTasksRef.current.delete(pageNum);
+        return true;
+      } catch (err) {
+        // Ignore cancellation errors
+        if (err?.name === "RenderingCancelledException") {
+          return false;
+        }
+        console.error(`Error rendering page ${pageNum}:`, err);
         return false;
       }
-      console.error(`Error rendering page ${pageNum}:`, err);
-      return false;
-    }
-  }, [pdfDoc, scale, viewMode, toolbarVisible, isFullscreen]);
+    },
+    [pdfDoc, scale, viewMode, toolbarVisible, isFullscreen]
+  );
 
   // Render current page for one-page mode
   const renderCurrentPage = useCallback(async () => {
@@ -259,7 +271,16 @@ export default function PDFReader({ filePath, title }) {
     if (viewMode === "one-page" && pdfDoc && !isLoading) {
       renderCurrentPage();
     }
-  }, [viewMode, pdfDoc, currentPage, scale, isLoading, toolbarVisible, isFullscreen, renderCurrentPage]);
+  }, [
+    viewMode,
+    pdfDoc,
+    currentPage,
+    scale,
+    isLoading,
+    toolbarVisible,
+    isFullscreen,
+    renderCurrentPage,
+  ]);
 
   // Setup intersection observer for continuous mode lazy loading
   useEffect(() => {
@@ -282,7 +303,10 @@ export default function PDFReader({ filePath, title }) {
             }
             // Update current page based on what's most visible
             // Skip during mode transition to preserve the intended page
-            if (entry.intersectionRatio > 0.5 && !isTransitioningModeRef.current) {
+            if (
+              entry.intersectionRatio > 0.5 &&
+              !isTransitioningModeRef.current
+            ) {
               setCurrentPage(pageNum);
             }
           }
@@ -352,7 +376,7 @@ export default function PDFReader({ filePath, title }) {
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
       const scrollingUp = currentScrollY < lastScrollY.current;
-      
+
       if (scrollingUp || currentScrollY < 50) {
         setToolbarVisible(true);
         // Clear any existing timeout
@@ -368,7 +392,7 @@ export default function PDFReader({ filePath, title }) {
       } else if (currentScrollY > 100) {
         setToolbarVisible(false);
       }
-      
+
       lastScrollY.current = currentScrollY;
     };
 
@@ -404,7 +428,9 @@ export default function PDFReader({ filePath, title }) {
       setCurrentPage(newPage);
       if (viewMode === "continuous") {
         // Scroll to page in continuous mode
-        const pageElement = viewerRef.current?.querySelector(`[data-page="${newPage}"]`);
+        const pageElement = viewerRef.current?.querySelector(
+          `[data-page="${newPage}"]`
+        );
         pageElement?.scrollIntoView({ behavior: "smooth", block: "start" });
       }
     }
@@ -415,7 +441,9 @@ export default function PDFReader({ filePath, title }) {
       const newPage = currentPage + 1;
       setCurrentPage(newPage);
       if (viewMode === "continuous") {
-        const pageElement = viewerRef.current?.querySelector(`[data-page="${newPage}"]`);
+        const pageElement = viewerRef.current?.querySelector(
+          `[data-page="${newPage}"]`
+        );
         pageElement?.scrollIntoView({ behavior: "smooth", block: "start" });
       }
     }
@@ -426,7 +454,9 @@ export default function PDFReader({ filePath, title }) {
     if (page >= 1 && page <= totalPages) {
       setCurrentPage(page);
       if (viewMode === "continuous") {
-        const pageElement = viewerRef.current?.querySelector(`[data-page="${page}"]`);
+        const pageElement = viewerRef.current?.querySelector(
+          `[data-page="${page}"]`
+        );
         pageElement?.scrollIntoView({ behavior: "smooth", block: "start" });
       }
     }
@@ -455,7 +485,8 @@ export default function PDFReader({ filePath, title }) {
     };
 
     document.addEventListener("fullscreenchange", handleFullscreenChange);
-    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
+    return () =>
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
   }, []);
 
   // Keyboard navigation
@@ -495,11 +526,14 @@ export default function PDFReader({ filePath, title }) {
   }, [currentPage, totalPages, isFullscreen, goToPreviousPage, goToNextPage]);
 
   // Register canvas ref
-  const setCanvasRef = useCallback((pageNum) => (el) => {
-    if (el) {
-      canvasRefs.current.set(pageNum, el);
-    }
-  }, []);
+  const setCanvasRef = useCallback(
+    (pageNum) => (el) => {
+      if (el) {
+        canvasRefs.current.set(pageNum, el);
+      }
+    },
+    []
+  );
 
   if (error) {
     return (
@@ -532,17 +566,17 @@ export default function PDFReader({ filePath, title }) {
   return (
     <div
       ref={containerRef}
-      className={`flex flex-col bg-base-100 rounded-xl border border-base-300 overflow-hidden ${
-        isFullscreen ? "fixed inset-0 z-50 rounded-none" : ""
-      } ${viewMode === "one-page" ? "h-[85vh]" : ""}`}
+      className={`flex flex-col w-full h-full bg-base-100 overflow-hidden ${
+        isFullscreen ? "fixed inset-0 z-50" : ""
+      }`}
     >
-      {/* Toolbar - auto-hides in one-page mode */}
+      {/* Toolbar - auto-hides in one-page mode, always visible in continuous mode */}
       <div
-        className={`flex items-center justify-between p-3 bg-base-200 border-b border-base-300 flex-wrap gap-2 transition-all duration-300 ${
+        className={`flex items-center justify-between p-3 bg-base-200 border-b border-base-300 flex-wrap gap-2 transition-all duration-300 sticky top-0 z-50 ${
           viewMode === "one-page" && !toolbarVisible
-            ? "opacity-0 -translate-y-full absolute top-0 left-0 right-0 z-50"
+            ? "opacity-0 -translate-y-full"
             : "opacity-100 translate-y-0"
-        } ${viewMode === "one-page" && toolbarVisible ? "sticky top-0 z-50" : ""}`}
+        }`}
         onMouseEnter={() => viewMode === "one-page" && setToolbarVisible(true)}
       >
         {/* Page Navigation */}
@@ -666,7 +700,9 @@ export default function PDFReader({ filePath, title }) {
           <button
             onClick={toggleViewMode}
             className="btn btn-ghost btn-sm gap-1"
-            title={`Switch to ${viewMode === "one-page" ? "continuous scroll" : "one page"} view (V)`}
+            title={`Switch to ${
+              viewMode === "one-page" ? "continuous scroll" : "one page"
+            } view (V)`}
           >
             {viewMode === "one-page" ? (
               // Scroll icon for switching to continuous
@@ -750,11 +786,11 @@ export default function PDFReader({ filePath, title }) {
       {/* PDF Viewer */}
       <div
         ref={viewerRef}
-        className={`flex-1 bg-base-300/50 ${
+        className={`flex-1 bg-base-300/30 ${
           viewMode === "one-page"
             ? "flex items-center justify-center overflow-hidden"
             : "overflow-y-auto"
-        } ${isFullscreen ? "h-[calc(100vh-96px)]" : ""}`}
+        } ${isFullscreen ? "h-[calc(100vh-96px)]" : "h-full"}`}
       >
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-16">
@@ -779,39 +815,40 @@ export default function PDFReader({ filePath, title }) {
         ) : (
           // Continuous scroll mode: all pages stacked vertically with lazy loading
           <div className="flex flex-col items-center gap-4 p-4">
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
-              <div
-                key={pageNum}
-                data-page={pageNum}
-                className="flex flex-col items-center"
-              >
-                <canvas
-                  ref={setCanvasRef(pageNum)}
-                  className="shadow-lg bg-white"
-                  style={{
-                    display: renderedPages.has(pageNum) ? "block" : "none",
-                  }}
-                />
-                {!renderedPages.has(pageNum) && (
-                  <div className="flex items-center justify-center bg-base-200 rounded-lg min-h-[400px] min-w-[300px]">
-                    <span className="loading loading-spinner loading-md text-primary"></span>
-                  </div>
-                )}
-                <span className="text-xs text-base-content/50 mt-2">
-                  Page {pageNum}
-                </span>
-              </div>
-            ))}
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+              (pageNum) => (
+                <div
+                  key={pageNum}
+                  data-page={pageNum}
+                  className="flex flex-col items-center"
+                >
+                  <canvas
+                    ref={setCanvasRef(pageNum)}
+                    className="shadow-lg bg-white"
+                    style={{
+                      display: renderedPages.has(pageNum) ? "block" : "none",
+                    }}
+                  />
+                  {!renderedPages.has(pageNum) && (
+                    <div className="flex items-center justify-center bg-base-200 rounded-lg min-h-[400px] min-w-[300px]">
+                      <span className="loading loading-spinner loading-md text-primary"></span>
+                    </div>
+                  )}
+                  <span className="text-xs text-base-content/50 mt-2">
+                    Page {pageNum}
+                  </span>
+                </div>
+              )
+            )}
           </div>
         )}
       </div>
 
       {/* Footer with keyboard shortcuts hint */}
       <div className="p-2 bg-base-200 border-t border-base-300 text-center text-xs text-base-content/50">
-        {viewMode === "one-page" 
+        {viewMode === "one-page"
           ? "Arrow keys to navigate • +/- zoom • V to switch view • Move mouse to top to show toolbar"
-          : "Scroll to read • +/- zoom • V to switch view • Arrow keys to jump pages"
-        }
+          : "Scroll to read • +/- zoom • V to switch view • Arrow keys to jump pages"}
       </div>
     </div>
   );
