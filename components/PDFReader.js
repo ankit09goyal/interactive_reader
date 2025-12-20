@@ -8,9 +8,11 @@ export default function PDFReader({ filePath, title }) {
   const viewerRef = useRef(null);
   const pdfjsLibRef = useRef(null);
   const canvasRefs = useRef(new Map());
+  const renderTasksRef = useRef(new Map()); // Track active render tasks per page
   const observerRef = useRef(null);
   const lastScrollY = useRef(0);
   const toolbarTimeoutRef = useRef(null);
+  const renderedPagesRef = useRef(new Set([1]));
   
   const [pdfDoc, setPdfDoc] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -24,11 +26,10 @@ export default function PDFReader({ filePath, title }) {
   
   // View mode state
   const [viewMode, setViewMode] = useState("one-page"); // "one-page" or "continuous"
-  const [preferencesLoaded, setPreferencesLoaded] = useState(false);
   const [toolbarVisible, setToolbarVisible] = useState(true);
   const [renderedPages, setRenderedPages] = useState(new Set([1]));
 
-  // Load user preferences
+  // Load user preferences in background (non-blocking)
   useEffect(() => {
     const loadPreferences = async () => {
       try {
@@ -37,10 +38,7 @@ export default function PDFReader({ filePath, title }) {
           setViewMode(response.preferences.readerViewMode);
         }
       } catch (err) {
-        console.error("Failed to load preferences:", err);
-        // Use default (one-page) on error
-      } finally {
-        setPreferencesLoaded(true);
+        // Silently use default (one-page) on error
       }
     };
 
@@ -63,7 +61,9 @@ export default function PDFReader({ filePath, title }) {
     saveViewModePreference(newMode);
     // Reset rendered pages for continuous mode
     if (newMode === "continuous") {
-      setRenderedPages(new Set([currentPage]));
+      const newSet = new Set([currentPage]);
+      renderedPagesRef.current = newSet;
+      setRenderedPages(newSet);
     }
   };
 
@@ -90,6 +90,16 @@ export default function PDFReader({ filePath, title }) {
   useEffect(() => {
     if (!pdfjsLoaded || !pdfjsLibRef.current || !filePath) return;
 
+    // Cancel all existing render tasks when loading new PDF
+    renderTasksRef.current.forEach((task) => {
+      try {
+        task.cancel();
+      } catch (e) {
+        // Ignore cancel errors
+      }
+    });
+    renderTasksRef.current.clear();
+
     const loadPDF = async () => {
       try {
         setIsLoading(true);
@@ -101,7 +111,9 @@ export default function PDFReader({ filePath, title }) {
         setPdfDoc(pdf);
         setTotalPages(pdf.numPages);
         setCurrentPage(1);
-        setRenderedPages(new Set([1]));
+        const initialSet = new Set([1]);
+        renderedPagesRef.current = initialSet;
+        setRenderedPages(initialSet);
       } catch (err) {
         console.error("Error loading PDF:", err);
         setError("Failed to load PDF. Please try again.");
@@ -111,11 +123,34 @@ export default function PDFReader({ filePath, title }) {
     };
 
     loadPDF();
+
+    // Cleanup on unmount
+    return () => {
+      renderTasksRef.current.forEach((task) => {
+        try {
+          task.cancel();
+        } catch (e) {
+          // Ignore cancel errors
+        }
+      });
+      renderTasksRef.current.clear();
+    };
   }, [filePath, pdfjsLoaded]);
 
   // Render a single page to a canvas
   const renderPageToCanvas = useCallback(async (pageNum, canvas, fitToViewport = false) => {
-    if (!pdfDoc || !canvas) return;
+    if (!pdfDoc || !canvas) return false;
+
+    // Cancel any existing render task for this page
+    const existingTask = renderTasksRef.current.get(pageNum);
+    if (existingTask) {
+      try {
+        existingTask.cancel();
+      } catch (e) {
+        // Ignore cancel errors
+      }
+      renderTasksRef.current.delete(pageNum);
+    }
 
     try {
       const page = await pdfDoc.getPage(pageNum);
@@ -160,9 +195,20 @@ export default function PDFReader({ filePath, title }) {
         viewport: scaledViewport,
       };
 
-      await page.render(renderContext).promise;
+      // Start render and track the task
+      const renderTask = page.render(renderContext);
+      renderTasksRef.current.set(pageNum, renderTask);
+      
+      await renderTask.promise;
+      
+      // Clean up task reference
+      renderTasksRef.current.delete(pageNum);
       return true;
     } catch (err) {
+      // Ignore cancellation errors
+      if (err?.name === "RenderingCancelledException") {
+        return false;
+      }
       console.error(`Error rendering page ${pageNum}:`, err);
       return false;
     }
@@ -170,15 +216,18 @@ export default function PDFReader({ filePath, title }) {
 
   // Render current page for one-page mode
   const renderCurrentPage = useCallback(async () => {
-    if (!pdfDoc || viewMode !== "one-page" || isRendering) return;
+    if (!pdfDoc || viewMode !== "one-page") return;
 
     const canvas = canvasRefs.current.get(currentPage);
     if (!canvas) return;
 
     setIsRendering(true);
-    await renderPageToCanvas(currentPage, canvas, true);
-    setIsRendering(false);
-  }, [pdfDoc, currentPage, viewMode, isRendering, renderPageToCanvas]);
+    try {
+      await renderPageToCanvas(currentPage, canvas, true);
+    } finally {
+      setIsRendering(false);
+    }
+  }, [pdfDoc, currentPage, viewMode, renderPageToCanvas]);
 
   // Effect to render page in one-page mode
   useEffect(() => {
@@ -201,7 +250,9 @@ export default function PDFReader({ filePath, title }) {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
             const pageNum = parseInt(entry.target.dataset.page);
-            if (!isNaN(pageNum) && !renderedPages.has(pageNum)) {
+            // Use ref to check rendered pages to avoid stale closure
+            if (!isNaN(pageNum) && !renderedPagesRef.current.has(pageNum)) {
+              renderedPagesRef.current.add(pageNum);
               setRenderedPages((prev) => new Set([...prev, pageNum]));
             }
             // Update current page based on what's most visible
@@ -418,11 +469,11 @@ export default function PDFReader({ filePath, title }) {
   }, [currentPage, totalPages, isFullscreen, goToPreviousPage, goToNextPage]);
 
   // Register canvas ref
-  const setCanvasRef = (pageNum) => (el) => {
+  const setCanvasRef = useCallback((pageNum) => (el) => {
     if (el) {
       canvasRefs.current.set(pageNum, el);
     }
-  };
+  }, []);
 
   if (error) {
     return (
@@ -679,7 +730,7 @@ export default function PDFReader({ filePath, title }) {
             : "overflow-y-auto"
         } ${isFullscreen ? "h-[calc(100vh-96px)]" : ""}`}
       >
-        {isLoading || !preferencesLoaded ? (
+        {isLoading ? (
           <div className="flex flex-col items-center justify-center py-16">
             <span className="loading loading-spinner loading-lg text-primary"></span>
             <p className="mt-4 text-base-content/70">Loading PDF...</p>
