@@ -28,6 +28,7 @@
     "next-sitemap": "^4.2.3",
     "nextjs-toploader": "^3.9.17",
     "nodemailer": "^7.0.11",
+    "pdfjs-dist": "^5.4.449",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "react-hot-toast": "^2.6.0",

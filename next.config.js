@@ -38,6 +38,19 @@ const nextConfig = {
     // Empty config to silence Turbopack warning
     // The webpack config above is still needed for MongoDB dependency handling
   },
+  async headers() {
+    return [
+      {
+        source: "/pdfjs/pdf.worker.min.mjs",
+        headers: [
+          {
+            key: "Content-Type",
+            value: "application/javascript",
+          },
+        ],
+      },
+    ];
+  },
 };
 
 module.exports = nextConfig;
