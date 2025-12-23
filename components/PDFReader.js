@@ -194,14 +194,14 @@ export default function PDFReader({
           const container = containerRef.current;
           const toolbarHeight = 56;
           const footerHeight = 40;
-          const padding = 32;
+          const padding = 0;
 
           const availableWidth =
             (container?.clientWidth || window.innerWidth) - padding;
           const availableHeight =
             (isFullscreen
               ? window.innerHeight
-              : Math.min(window.innerHeight * 0.85, 800)) -
+              : Math.min(window.innerHeight, 900)) -
             toolbarHeight -
             footerHeight -
             padding;
@@ -292,12 +292,18 @@ export default function PDFReader({
       observerRef.current.disconnect();
     }
 
+    // Sync ref with current state before creating observer to ensure consistency
+    // This ensures the ref has the latest rendered pages when the observer is created
+    renderedPagesRef.current = new Set(renderedPages);
+
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
             const pageNum = parseInt(entry.target.dataset.page);
             // Use ref to check rendered pages to avoid stale closure
+            // The ref is always current and doesn't require renderedPages in dependencies
+            // because refs don't cause re-renders and always have the latest value
             if (!isNaN(pageNum) && !renderedPagesRef.current.has(pageNum)) {
               renderedPagesRef.current.add(pageNum);
               setRenderedPages((prev) => new Set([...prev, pageNum]));
@@ -327,7 +333,25 @@ export default function PDFReader({
     pageContainers?.forEach((container) => observer.observe(container));
 
     return () => observer.disconnect();
+    // Note: renderedPages is intentionally NOT in dependencies because we use
+    // renderedPagesRef.current in the callback, which avoids stale closures.
+    // The ref is synced above before creating the observer, ensuring consistency.
+    // Adding renderedPages to dependencies would cause unnecessary observer
+    // recreations every time a page is added, leading to performance issues.
   }, [viewMode, pdfDoc, isLoading, totalPages]);
+
+  // Clear rendered flags when scale changes in continuous mode
+  useEffect(() => {
+    if (viewMode !== "continuous" || !pdfDoc) return;
+
+    // Clear rendered flags for all pages when scale changes
+    canvasRefs.current.forEach((canvas) => {
+      if (canvas) {
+        canvas.dataset.rendered = "";
+        delete canvas.dataset.lastScale;
+      }
+    });
+  }, [scale, viewMode, pdfDoc]);
 
   // Render pages when they become visible in continuous mode
   useEffect(() => {
@@ -415,17 +439,6 @@ export default function PDFReader({
   const zoomIn = () => setScale((prev) => Math.min(prev + 0.25, 3));
   const zoomOut = () => setScale((prev) => Math.max(prev - 0.25, 0.5));
   const resetZoom = () => setScale(1);
-
-  // Fullscreen handler
-  const toggleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      containerRef.current?.requestFullscreen();
-      setIsFullscreen(true);
-    } else {
-      document.exitFullscreen();
-      setIsFullscreen(false);
-    }
-  };
 
   // Handle fullscreen change
   useEffect(() => {
@@ -605,8 +618,52 @@ export default function PDFReader({
           </button>
         </div>
 
-        {/* Right: View Mode Toggle */}
+        {/* Right: Zoom Controls + View Mode Toggle */}
         <div className="flex items-center gap-2">
+          <button
+            onClick={zoomOut}
+            disabled={scale <= 0.5 || isLoading}
+            className="btn btn-ghost btn-sm btn-square"
+            title="Zoom out (-)"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-5 w-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM13 10H7"
+              />
+            </svg>
+          </button>
+
+          <button
+            onClick={zoomIn}
+            disabled={scale >= 3 || isLoading}
+            className="btn btn-ghost btn-sm btn-square"
+            title="Zoom in (+)"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-5 w-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7"
+              />
+            </svg>
+          </button>
+
           <button
             onClick={toggleViewMode}
             className="btn btn-ghost btn-sm gap-1"
@@ -658,9 +715,7 @@ export default function PDFReader({
       <div
         ref={viewerRef}
         className={`flex-1 bg-base-300/30 ${
-          viewMode === "one-page"
-            ? "flex items-center justify-center overflow-hidden"
-            : "overflow-y-auto"
+          viewMode === "one-page" ? "overflow-auto" : "overflow-y-auto"
         } ${isFullscreen ? "h-[calc(100vh-96px)]" : "h-full"}`}
       >
         {isLoading ? (
@@ -670,18 +725,21 @@ export default function PDFReader({
           </div>
         ) : viewMode === "one-page" ? (
           // One-page mode: single canvas that fits viewport
-          <div className="flex items-center justify-center p-4 h-full">
-            <canvas
-              ref={setCanvasRef(currentPage)}
-              key={currentPage}
-              className="shadow-lg bg-white"
-              style={{ display: isRendering ? "none" : "block" }}
-            />
-            {isRendering && (
-              <div className="flex items-center justify-center">
-                <span className="loading loading-spinner loading-md text-primary"></span>
-              </div>
-            )}
+          // Use padding for centering when small, allows natural scrolling when large
+          <div className="flex justify-center items-start min-h-full p-4">
+            <div className="flex flex-col items-center gap-4">
+              <canvas
+                ref={setCanvasRef(currentPage)}
+                key={currentPage}
+                className="shadow-lg bg-white mx-auto"
+                style={{ display: isRendering ? "none" : "block" }}
+              />
+              {isRendering && (
+                <div className="flex items-center justify-center">
+                  <span className="loading loading-spinner loading-md text-primary"></span>
+                </div>
+              )}
+            </div>
           </div>
         ) : (
           // Continuous scroll mode: all pages stacked vertically with lazy loading
