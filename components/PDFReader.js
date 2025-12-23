@@ -3,21 +3,28 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import apiClient from "@/libs/api";
 import Link from "next/link";
+import TextSelectionMenu from "./TextSelectionMenu";
+import QuestionModal from "./QuestionModal";
+import AdminCreateQuestionModal from "./AdminCreateQuestionModal";
+import QuestionsSidebar from "./QuestionsSidebar";
 
 export default function PDFReader({
   filePath,
   title,
   backHref = "/dashboard",
+  bookId = null,
+  isAdmin = false,
 }) {
   const containerRef = useRef(null);
   const viewerRef = useRef(null);
   const pdfjsLibRef = useRef(null);
   const canvasRefs = useRef(new Map());
-  const renderTasksRef = useRef(new Map()); // Track active render tasks per page
+  const textLayerRefs = useRef(new Map());
+  const renderTasksRef = useRef(new Map());
   const observerRef = useRef(null);
   const renderedPagesRef = useRef(new Set([1]));
-  const isTransitioningModeRef = useRef(false); // Prevent page updates during mode transitions
-  const targetPageRef = useRef(1); // Track target page during mode switch
+  const isTransitioningModeRef = useRef(false);
+  const targetPageRef = useRef(1);
 
   const [pdfDoc, setPdfDoc] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -30,8 +37,19 @@ export default function PDFReader({
   const [pdfjsLoaded, setPdfjsLoaded] = useState(false);
 
   // View mode state
-  const [viewMode, setViewMode] = useState("one-page"); // "one-page" or "continuous"
+  const [viewMode, setViewMode] = useState("one-page");
   const [renderedPages, setRenderedPages] = useState(new Set([1]));
+
+  // Text selection state
+  const [selectedText, setSelectedText] = useState("");
+  const [selectionPosition, setSelectionPosition] = useState(null);
+  const [selectionPageNumber, setSelectionPageNumber] = useState(null);
+
+  // Modal states
+  const [showQuestionModal, setShowQuestionModal] = useState(false);
+  const [showAdminCreateModal, setShowAdminCreateModal] = useState(false);
+  const [showSidebar, setShowSidebar] = useState(false);
+  const [sidebarRefreshTrigger, setSidebarRefreshTrigger] = useState(0);
 
   // Load user preferences in background (non-blocking)
   useEffect(() => {
@@ -62,20 +80,17 @@ export default function PDFReader({
   const toggleViewMode = () => {
     const newMode = viewMode === "one-page" ? "continuous" : "one-page";
 
-    // Save current page before switching
     targetPageRef.current = currentPage;
     isTransitioningModeRef.current = true;
 
     setViewMode(newMode);
     saveViewModePreference(newMode);
 
-    // Reset rendered pages for continuous mode
     if (newMode === "continuous") {
       const newSet = new Set([currentPage]);
       renderedPagesRef.current = newSet;
       setRenderedPages(newSet);
 
-      // Scroll to the current page after DOM updates
       setTimeout(() => {
         const pageElement = document.querySelector(
           `[data-page="${currentPage}"]`
@@ -83,13 +98,11 @@ export default function PDFReader({
         if (pageElement) {
           pageElement.scrollIntoView({ behavior: "auto", block: "start" });
         }
-        // Allow IntersectionObserver to update currentPage again after scroll settles
         setTimeout(() => {
           isTransitioningModeRef.current = false;
         }, 100);
       }, 50);
     } else {
-      // Clear transition flag after a short delay for one-page mode
       setTimeout(() => {
         isTransitioningModeRef.current = false;
       }, 100);
@@ -119,7 +132,6 @@ export default function PDFReader({
   useEffect(() => {
     if (!pdfjsLoaded || !pdfjsLibRef.current || !filePath) return;
 
-    // Cancel all existing render tasks when loading new PDF
     renderTasksRef.current.forEach((task) => {
       try {
         task.cancel();
@@ -153,7 +165,6 @@ export default function PDFReader({
 
     loadPDF();
 
-    // Cleanup on unmount
     return () => {
       renderTasksRef.current.forEach((task) => {
         try {
@@ -166,12 +177,11 @@ export default function PDFReader({
     };
   }, [filePath, pdfjsLoaded]);
 
-  // Render a single page to a canvas
+  // Render a single page to a canvas with text layer
   const renderPageToCanvas = useCallback(
     async (pageNum, canvas, fitToViewport = false) => {
       if (!pdfDoc || !canvas) return false;
 
-      // Cancel any existing render task for this page
       const existingTask = renderTasksRef.current.get(pageNum);
       if (existingTask) {
         try {
@@ -190,7 +200,6 @@ export default function PDFReader({
         let effectiveScale;
 
         if (fitToViewport && viewMode === "one-page") {
-          // For one-page mode: fit to viewport while maintaining aspect ratio
           const container = containerRef.current;
           const toolbarHeight = 56;
           const footerHeight = 40;
@@ -210,7 +219,6 @@ export default function PDFReader({
           const scaleY = availableHeight / viewport.height;
           effectiveScale = Math.min(scaleX, scaleY, 2) * scale;
         } else {
-          // For continuous mode: fit to container width
           const container = containerRef.current;
           const containerWidth = container?.clientWidth || 800;
           const fitScale = (containerWidth - 48) / viewport.width;
@@ -232,17 +240,17 @@ export default function PDFReader({
           viewport: scaledViewport,
         };
 
-        // Start render and track the task
         const renderTask = page.render(renderContext);
         renderTasksRef.current.set(pageNum, renderTask);
 
         await renderTask.promise;
 
-        // Clean up task reference
+        // Render text layer for selection
+        await renderTextLayer(page, scaledViewport, pageNum);
+
         renderTasksRef.current.delete(pageNum);
         return true;
       } catch (err) {
-        // Ignore cancellation errors
         if (err?.name === "RenderingCancelledException") {
           return false;
         }
@@ -252,6 +260,133 @@ export default function PDFReader({
     },
     [pdfDoc, scale, viewMode, isFullscreen]
   );
+
+  // Render text layer for a page
+  const renderTextLayer = async (page, viewport, pageNum) => {
+    const textLayerDiv = textLayerRefs.current.get(pageNum);
+    if (!textLayerDiv) return;
+
+    // Clear existing content
+    textLayerDiv.innerHTML = "";
+    textLayerDiv.style.width = `${viewport.width}px`;
+    textLayerDiv.style.height = `${viewport.height}px`;
+
+    try {
+      const textContent = await page.getTextContent();
+
+      // Render each text item
+      textContent.items.forEach((item) => {
+        const tx = pdfjsLibRef.current.Util.transform(
+          viewport.transform,
+          item.transform
+        );
+
+        const fontSize = Math.sqrt(tx[0] * tx[0] + tx[1] * tx[1]);
+        const fontAscent = item.fontName ? fontSize * 0.8 : fontSize;
+
+        const span = document.createElement("span");
+        span.textContent = item.str;
+        span.style.left = `${tx[4]}px`;
+        span.style.top = `${tx[5] - fontAscent}px`;
+        span.style.fontSize = `${fontSize}px`;
+        span.style.fontFamily = item.fontName || "sans-serif";
+        span.style.position = "absolute";
+        span.style.whiteSpace = "pre";
+        span.style.color = "transparent";
+        span.style.cursor = "text";
+        span.dataset.pageNum = pageNum;
+
+        textLayerDiv.appendChild(span);
+      });
+    } catch (err) {
+      console.error(`Error rendering text layer for page ${pageNum}:`, err);
+    }
+  };
+
+  // Handle text selection
+  useEffect(() => {
+    const handleMouseUp = (e) => {
+      // Ignore if clicking on toolbar or modals
+      if (
+        e.target.closest(".toolbar") ||
+        e.target.closest("[role='dialog']") ||
+        showQuestionModal ||
+        showAdminCreateModal ||
+        showSidebar
+      ) {
+        return;
+      }
+
+      const selection = window.getSelection();
+      const text = selection?.toString().trim();
+
+      if (text && text.length > 0) {
+        // Get page number from selection
+        const anchorNode = selection?.anchorNode?.parentElement;
+        const pageNum = anchorNode?.dataset?.pageNum
+          ? parseInt(anchorNode.dataset.pageNum)
+          : currentPage;
+
+        // Get position for menu
+        const range = selection.getRangeAt(0);
+        const rect = range.getBoundingClientRect();
+
+        setSelectedText(text);
+        setSelectionPageNumber(pageNum);
+        setSelectionPosition({
+          x: rect.left + rect.width / 2,
+          y: rect.bottom,
+        });
+      } else {
+        // Clear selection if clicking elsewhere
+        if (!e.target.closest(".text-selection-menu")) {
+          clearSelection();
+        }
+      }
+    };
+
+    document.addEventListener("mouseup", handleMouseUp);
+    return () => document.removeEventListener("mouseup", handleMouseUp);
+  }, [currentPage, showQuestionModal, showAdminCreateModal, showSidebar]);
+
+  // Clear text selection
+  const clearSelection = () => {
+    setSelectedText("");
+    setSelectionPosition(null);
+    setSelectionPageNumber(null);
+    window.getSelection()?.removeAllRanges();
+  };
+
+  // Handle asking question from selection menu
+  const handleAskQuestion = (text) => {
+    setShowQuestionModal(true);
+    setSelectionPosition(null); // Hide selection menu
+  };
+
+  // Handle creating public Q&A from selection menu (admin only)
+  const handleCreatePublicQA = (text) => {
+    setShowAdminCreateModal(true);
+    setSelectionPosition(null); // Hide selection menu
+  };
+
+  // Handle question created
+  const handleQuestionCreated = () => {
+    clearSelection();
+    setSidebarRefreshTrigger((prev) => prev + 1);
+  };
+
+  // Navigate to page (from sidebar)
+  const handleGoToPage = (pageNumber) => {
+    if (pageNumber >= 1 && pageNumber <= totalPages) {
+      setCurrentPage(pageNumber);
+      if (viewMode === "continuous") {
+        const pageElement = viewerRef.current?.querySelector(
+          `[data-page="${pageNumber}"]`
+        );
+        pageElement?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }
+  };
 
   // Render current page for one-page mode
   const renderCurrentPage = useCallback(async () => {
@@ -287,13 +422,10 @@ export default function PDFReader({
   useEffect(() => {
     if (viewMode !== "continuous" || !pdfDoc || isLoading) return;
 
-    // Clean up previous observer
     if (observerRef.current) {
       observerRef.current.disconnect();
     }
 
-    // Sync ref with current state before creating observer to ensure consistency
-    // This ensures the ref has the latest rendered pages when the observer is created
     renderedPagesRef.current = new Set(renderedPages);
 
     const observer = new IntersectionObserver(
@@ -301,15 +433,10 @@ export default function PDFReader({
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
             const pageNum = parseInt(entry.target.dataset.page);
-            // Use ref to check rendered pages to avoid stale closure
-            // The ref is always current and doesn't require renderedPages in dependencies
-            // because refs don't cause re-renders and always have the latest value
             if (!isNaN(pageNum) && !renderedPagesRef.current.has(pageNum)) {
               renderedPagesRef.current.add(pageNum);
               setRenderedPages((prev) => new Set([...prev, pageNum]));
             }
-            // Update current page based on what's most visible
-            // Skip during mode transition to preserve the intended page
             if (
               entry.intersectionRatio > 0.5 &&
               !isTransitioningModeRef.current
@@ -328,23 +455,16 @@ export default function PDFReader({
 
     observerRef.current = observer;
 
-    // Observe all page containers
     const pageContainers = viewerRef.current?.querySelectorAll("[data-page]");
     pageContainers?.forEach((container) => observer.observe(container));
 
     return () => observer.disconnect();
-    // Note: renderedPages is intentionally NOT in dependencies because we use
-    // renderedPagesRef.current in the callback, which avoids stale closures.
-    // The ref is synced above before creating the observer, ensuring consistency.
-    // Adding renderedPages to dependencies would cause unnecessary observer
-    // recreations every time a page is added, leading to performance issues.
   }, [viewMode, pdfDoc, isLoading, totalPages]);
 
   // Clear rendered flags when scale changes in continuous mode
   useEffect(() => {
     if (viewMode !== "continuous" || !pdfDoc) return;
 
-    // Clear rendered flags for all pages when scale changes
     canvasRefs.current.forEach((canvas) => {
       if (canvas) {
         canvas.dataset.rendered = "";
@@ -374,14 +494,12 @@ export default function PDFReader({
   useEffect(() => {
     const handleResize = () => {
       if (pdfDoc) {
-        // Clear rendered flags to force re-render
         canvasRefs.current.forEach((canvas) => {
           if (canvas) canvas.dataset.rendered = "";
         });
         if (viewMode === "one-page") {
           renderCurrentPage();
         } else {
-          // Re-render visible pages
           setRenderedPages((prev) => new Set([...prev]));
         }
       }
@@ -391,16 +509,12 @@ export default function PDFReader({
     return () => window.removeEventListener("resize", handleResize);
   }, [pdfDoc, viewMode, renderCurrentPage]);
 
-  // Auto-hide toolbar logic for one-page mode
-  // Toolbar always visible now; no auto-hide needed
-
   // Navigation handlers
   const goToPreviousPage = useCallback(() => {
     if (currentPage > 1) {
       const newPage = currentPage - 1;
       setCurrentPage(newPage);
       if (viewMode === "continuous") {
-        // Scroll to page in continuous mode
         const pageElement = viewerRef.current?.querySelector(
           `[data-page="${newPage}"]`
         );
@@ -454,6 +568,9 @@ export default function PDFReader({
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e) => {
+      // Don't handle keys if modal is open
+      if (showQuestionModal || showAdminCreateModal || showSidebar) return;
+
       switch (e.key) {
         case "ArrowLeft":
           goToPreviousPage();
@@ -475,23 +592,45 @@ export default function PDFReader({
           if (isFullscreen) {
             document.exitFullscreen();
           }
+          clearSelection();
           break;
         case "v":
-          // Toggle view mode with 'v' key
           toggleViewMode();
+          break;
+        case "q":
+          setShowSidebar((prev) => !prev);
           break;
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [currentPage, totalPages, isFullscreen, goToPreviousPage, goToNextPage]);
+  }, [
+    currentPage,
+    totalPages,
+    isFullscreen,
+    goToPreviousPage,
+    goToNextPage,
+    showQuestionModal,
+    showAdminCreateModal,
+    showSidebar,
+  ]);
 
   // Register canvas ref
   const setCanvasRef = useCallback(
     (pageNum) => (el) => {
       if (el) {
         canvasRefs.current.set(pageNum, el);
+      }
+    },
+    []
+  );
+
+  // Register text layer ref
+  const setTextLayerRef = useCallback(
+    (pageNum) => (el) => {
+      if (el) {
+        textLayerRefs.current.set(pageNum, el);
       }
     },
     []
@@ -532,8 +671,8 @@ export default function PDFReader({
         isFullscreen ? "fixed inset-0 z-50" : ""
       }`}
     >
-      {/* Toolbar - auto-hides in one-page mode, always visible in continuous mode */}
-      <div className="flex items-center justify-between p-3 bg-base-200 border-b border-base-300 flex-wrap gap-2 sticky top-0 z-50">
+      {/* Toolbar */}
+      <div className="toolbar flex items-center justify-between p-3 bg-base-200 border-b border-base-300 flex-wrap gap-2 sticky top-0 z-50">
         {/* Left: Back + Title */}
         <div className="flex items-center gap-2">
           <Link href={backHref} className="btn btn-ghost btn-sm gap-1">
@@ -618,8 +757,9 @@ export default function PDFReader({
           </button>
         </div>
 
-        {/* Right: Zoom Controls + View Mode Toggle */}
+        {/* Right: Tools */}
         <div className="flex items-center gap-2">
+          {/* Zoom Controls */}
           <button
             onClick={zoomOut}
             disabled={scale <= 0.5 || isLoading}
@@ -664,6 +804,7 @@ export default function PDFReader({
             </svg>
           </button>
 
+          {/* View Mode Toggle */}
           <button
             onClick={toggleViewMode}
             className="btn btn-ghost btn-sm gap-1"
@@ -672,7 +813,6 @@ export default function PDFReader({
             } view (V)`}
           >
             {viewMode === "one-page" ? (
-              // Scroll icon for switching to continuous
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 className="h-5 w-5"
@@ -688,7 +828,6 @@ export default function PDFReader({
                 />
               </svg>
             ) : (
-              // Single page icon for switching to one-page
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 className="h-5 w-5"
@@ -708,6 +847,58 @@ export default function PDFReader({
               {viewMode === "one-page" ? "Scroll" : "Page"}
             </span>
           </button>
+
+          {/* Questions Sidebar Toggle */}
+          {bookId && (
+            <button
+              onClick={() => setShowSidebar(!showSidebar)}
+              className={`btn btn-ghost btn-sm gap-1 ${
+                showSidebar ? "btn-active" : ""
+              }`}
+              title="Questions & Answers (Q)"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              <span className="hidden sm:inline text-xs">Q&A</span>
+            </button>
+          )}
+
+          {/* Admin: Create Public Q&A button */}
+          {isAdmin && bookId && (
+            <button
+              onClick={() => setShowAdminCreateModal(true)}
+              className="btn btn-primary btn-sm gap-1"
+              title="Create Public Q&A"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 4v16m8-8H4"
+                />
+              </svg>
+              <span className="hidden sm:inline text-xs">Create Q&A</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -724,16 +915,25 @@ export default function PDFReader({
             <p className="mt-4 text-base-content/70">Loading PDF...</p>
           </div>
         ) : viewMode === "one-page" ? (
-          // One-page mode: single canvas that fits viewport
-          // Use padding for centering when small, allows natural scrolling when large
           <div className="flex justify-center items-start min-h-full p-4">
             <div className="flex flex-col items-center gap-4">
-              <canvas
-                ref={setCanvasRef(currentPage)}
-                key={currentPage}
-                className="shadow-lg bg-white mx-auto"
-                style={{ display: isRendering ? "none" : "block" }}
-              />
+              <div className="relative">
+                <canvas
+                  ref={setCanvasRef(currentPage)}
+                  key={currentPage}
+                  className="shadow-lg bg-white mx-auto"
+                  style={{ display: isRendering ? "none" : "block" }}
+                />
+                {/* Text layer for selection */}
+                <div
+                  ref={setTextLayerRef(currentPage)}
+                  className="absolute top-0 left-0 overflow-hidden pointer-events-auto"
+                  style={{
+                    display: isRendering ? "none" : "block",
+                    userSelect: "text",
+                  }}
+                />
+              </div>
               {isRendering && (
                 <div className="flex items-center justify-center">
                   <span className="loading loading-spinner loading-md text-primary"></span>
@@ -742,7 +942,6 @@ export default function PDFReader({
             </div>
           </div>
         ) : (
-          // Continuous scroll mode: all pages stacked vertically with lazy loading
           <div className="flex flex-col items-center gap-4 p-4">
             {Array.from({ length: totalPages }, (_, i) => i + 1).map(
               (pageNum) => (
@@ -751,13 +950,24 @@ export default function PDFReader({
                   data-page={pageNum}
                   className="flex flex-col items-center"
                 >
-                  <canvas
-                    ref={setCanvasRef(pageNum)}
-                    className="shadow-lg bg-white"
-                    style={{
-                      display: renderedPages.has(pageNum) ? "block" : "none",
-                    }}
-                  />
+                  <div className="relative">
+                    <canvas
+                      ref={setCanvasRef(pageNum)}
+                      className="shadow-lg bg-white"
+                      style={{
+                        display: renderedPages.has(pageNum) ? "block" : "none",
+                      }}
+                    />
+                    {/* Text layer for selection */}
+                    <div
+                      ref={setTextLayerRef(pageNum)}
+                      className="absolute top-0 left-0 overflow-hidden pointer-events-auto"
+                      style={{
+                        display: renderedPages.has(pageNum) ? "block" : "none",
+                        userSelect: "text",
+                      }}
+                    />
+                  </div>
                   {!renderedPages.has(pageNum) && (
                     <div className="flex items-center justify-center bg-base-200 rounded-lg min-h-[400px] min-w-[300px]">
                       <span className="loading loading-spinner loading-md text-primary"></span>
@@ -773,12 +983,69 @@ export default function PDFReader({
         )}
       </div>
 
-      {/* Footer with keyboard shortcuts hint */}
+      {/* Footer */}
       <div className="p-2 bg-base-200 border-t border-base-300 text-center text-xs text-base-content/50">
         {viewMode === "one-page"
-          ? "Arrow keys to navigate • +/- zoom • V to switch view • Move mouse to top to show toolbar"
-          : "Scroll to read • +/- zoom • V to switch view • Arrow keys to jump pages"}
+          ? "Arrow keys to navigate • +/- zoom • V to switch view • Q to toggle Q&A"
+          : "Scroll to read • +/- zoom • V to switch view • Q to toggle Q&A"}
+        {" • Select text to ask questions"}
       </div>
+
+      {/* Text Selection Menu */}
+      {selectionPosition && selectedText && (
+        <div className="text-selection-menu">
+          <TextSelectionMenu
+            position={selectionPosition}
+            selectedText={selectedText}
+            onAskQuestion={handleAskQuestion}
+            onCreatePublicQA={handleCreatePublicQA}
+            onClose={clearSelection}
+            isAdmin={isAdmin}
+          />
+        </div>
+      )}
+
+      {/* Question Modal */}
+      {bookId && (
+        <QuestionModal
+          isOpen={showQuestionModal}
+          onClose={() => {
+            setShowQuestionModal(false);
+            clearSelection();
+          }}
+          selectedText={selectedText}
+          pageNumber={selectionPageNumber}
+          bookId={bookId}
+          isAdmin={isAdmin}
+          onQuestionCreated={handleQuestionCreated}
+        />
+      )}
+
+      {/* Admin Create Question Modal */}
+      {isAdmin && bookId && (
+        <AdminCreateQuestionModal
+          isOpen={showAdminCreateModal}
+          onClose={() => {
+            setShowAdminCreateModal(false);
+            clearSelection();
+          }}
+          bookId={bookId}
+          selectedText={selectedText}
+          pageNumber={selectionPageNumber}
+          onQuestionCreated={handleQuestionCreated}
+        />
+      )}
+
+      {/* Questions Sidebar */}
+      {bookId && (
+        <QuestionsSidebar
+          isOpen={showSidebar}
+          onClose={() => setShowSidebar(false)}
+          bookId={bookId}
+          onGoToPage={handleGoToPage}
+          refreshTrigger={sidebarRefreshTrigger}
+        />
+      )}
     </div>
   );
 }

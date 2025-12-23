@@ -4,6 +4,7 @@ import { auth } from "@/libs/auth";
 import connectMongo from "@/libs/mongoose";
 import Book from "@/models/Book";
 import UserBookAccess from "@/models/UserBookAccess";
+import User from "@/models/User";
 import PDFReader from "@/components/PDFReader";
 
 export const dynamic = "force-dynamic";
@@ -34,13 +35,19 @@ async function getBookWithAccess(bookId, userId) {
   // Get the book details
   const book = await Book.findById(bookId)
     .select(
-      "title author description fileName filePath fileSize mimeType createdAt"
+      "title author description fileName filePath fileSize mimeType createdAt uploadedBy"
     )
     .lean();
 
   if (!book) {
     return { error: "not_found" };
   }
+
+  // Check if user is an admin (either by role or by being the book uploader)
+  const user = await User.findById(userId).select("role").lean();
+  const isAdmin =
+    user?.role === "admin" ||
+    book.uploadedBy?.toString() === userId;
 
   return {
     book: {
@@ -55,7 +62,9 @@ async function getBookWithAccess(bookId, userId) {
       createdAt: book.createdAt?.toISOString(),
       fileSizeFormatted: formatFileSize(book.fileSize),
       fileType: book.mimeType === "application/pdf" ? "PDF" : "EPUB",
+      uploadedBy: book.uploadedBy?.toString(),
     },
+    isAdmin,
   };
 }
 
@@ -103,7 +112,7 @@ export default async function ReaderPage({ params }) {
     notFound();
   }
 
-  const { book } = result;
+  const { book, isAdmin } = result;
 
   // Check if book is PDF (only PDF is supported for now)
   if (book.mimeType !== "application/pdf") {
@@ -144,7 +153,12 @@ export default async function ReaderPage({ params }) {
       <section className="w-full h-screen flex flex-col">
         {/* PDF Reader - fills remaining space */}
         <div className="flex-1 min-h-0">
-          <PDFReader filePath={book.filePath} title={book.title} />
+          <PDFReader
+            filePath={book.filePath}
+            title={book.title}
+            bookId={book._id}
+            isAdmin={isAdmin}
+          />
         </div>
       </section>
     </main>
