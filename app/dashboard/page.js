@@ -25,7 +25,8 @@ async function getUserBooks(userId) {
   const userBookAccess = await UserBookAccess.find({ userId })
     .populate({
       path: "bookId",
-      select: "title author description fileName filePath fileSize mimeType createdAt",
+      select:
+        "title author description fileName filePath fileSize mimeType createdAt",
     })
     .sort({ createdAt: -1 })
     .lean();
@@ -63,10 +64,7 @@ export default async function Dashboard() {
         <div className="flex items-center justify-between">
           <ButtonAccount />
           {userIsAdmin && (
-            <Link
-              href="/admin"
-              className="btn btn-primary btn-sm gap-2"
-            >
+            <Link href="/admin" className="btn btn-primary btn-sm gap-2">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 className="h-4 w-4"
@@ -92,24 +90,8 @@ export default async function Dashboard() {
           </p>
         </div>
 
-        {/* Role Badge */}
-        <div className="bg-base-200 rounded-xl p-6 border border-base-300">
-          <h2 className="font-semibold mb-2">Your Account</h2>
-          <div className="flex items-center gap-3">
-            <span className="text-base-content/70">Role:</span>
-            <span
-              className={`badge ${
-                userIsAdmin ? "badge-primary" : "badge-ghost"
-              }`}
-            >
-              {userIsAdmin ? "Admin" : "User"}
-            </span>
-          </div>
-        </div>
-
         {/* User's Books */}
         <div>
-          <h2 className="text-xl font-bold mb-4">Your Books</h2>
           <UserBookList books={books} />
         </div>
       </section>

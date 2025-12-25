@@ -29,7 +29,7 @@ export default function PDFViewer({
   return (
     <div
       ref={viewerRef}
-      className={`flex-1 bg-base-300/30 ${
+      className={`flex-1 bg-base-200 ${
         viewMode === "one-page" ? "overflow-auto" : "overflow-y-auto"
       } ${isFullscreen ? "h-[calc(100vh-96px)]" : "h-full"}`}
     >
@@ -80,4 +80,3 @@ export default function PDFViewer({
     </div>
   );
 }
-

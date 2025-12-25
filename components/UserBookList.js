@@ -70,17 +70,20 @@ export default function UserBookList({ books }) {
           No books available
         </h3>
         <p className="text-sm text-base-content/50 mt-1">
-          You don&apos;t have access to any books yet. Contact your administrator
-          to request access.
+          You don&apos;t have access to any books yet. Contact your
+          administrator to request access.
         </p>
       </div>
     );
   }
 
   return (
-    <div className="bg-base-200 rounded-xl border border-base-300 overflow-hidden">
+    <div className="bg-base-100 rounded-xl border border-base-300 overflow-hidden">
       <div className="p-4 border-b border-base-300">
-        <h3 className="font-semibold">Your Library ({books.length})</h3>
+        <h2 className="font-semibold text-lg">
+          Your Library{" "}
+          <span className="badge badge-neutral ml-2">{books.length}</span>
+        </h2>
       </div>
       <div className="divide-y divide-base-300">
         {books.map((book) => (
@@ -104,7 +107,7 @@ export default function UserBookList({ books }) {
                 </p>
               )}
               <div className="flex flex-wrap gap-2 mt-2">
-                <span className="badge badge-sm">
+                <span className="badge badge-sm badge-ghost">
                   {book.fileType ||
                     (book.mimeType === "application/pdf" ? "PDF" : "EPUB")}
                 </span>
@@ -141,4 +144,3 @@ export default function UserBookList({ books }) {
     </div>
   );
 }
-

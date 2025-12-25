@@ -26,7 +26,7 @@ export default function PDFToolbar({
   onCreatePublicQA,
 }) {
   return (
-    <div className="toolbar flex items-center justify-between p-3 bg-base-200 border-b border-base-300 flex-wrap gap-2 sticky top-0 z-50">
+    <div className="toolbar flex items-center justify-between p-3 bg-base-100 border-b border-base-300 flex-wrap gap-2 sticky top-0 z-50">
       {/* Left: Back + Title */}
       <div className="flex items-center gap-2">
         <Link href={backHref} className="btn btn-ghost btn-sm gap-1">
@@ -257,4 +257,3 @@ export default function PDFToolbar({
     </div>
   );
 }
-

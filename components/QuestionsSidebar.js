@@ -14,10 +14,14 @@ export default function QuestionsSidebar({
   onGoToPage,
   refreshTrigger = 0,
 }) {
-  const [questions, setQuestions] = useState({ myQuestions: [], publicQuestions: [] });
+  const [questions, setQuestions] = useState({
+    myQuestions: [],
+    publicQuestions: [],
+  });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState("all"); // "all", "answered", "unanswered"
+  const [myQuestionsFilter, setMyQuestionsFilter] = useState(true);
 
   // Fetch questions when sidebar opens or refresh is triggered
   useEffect(() => {
@@ -67,7 +71,7 @@ export default function QuestionsSidebar({
   return (
     <div className="fixed top-0 right-0 h-full w-full sm:w-96 bg-base-100 shadow-2xl z-[150] flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-base-300">
+      <div className="flex items-center justify-between p-5 border-b border-base-300">
         <h3 className="text-lg font-semibold">Questions & Answers</h3>
         <button onClick={onClose} className="btn btn-ghost btn-sm btn-square">
           <svg
@@ -88,12 +92,36 @@ export default function QuestionsSidebar({
       </div>
 
       {/* Filter tabs */}
-      <div className="flex border-b border-base-300">
+      <div className="flex tabs border-b border-base-100 py-2">
+        <button
+          onClick={() => setMyQuestionsFilter(true)}
+          className={`flex-1 tab text-sm font-medium ${
+            myQuestionsFilter === true
+              ? "text-primary tab-active"
+              : "text-base-content/60"
+          }`}
+        >
+          My Questions
+        </button>
+        <button
+          onClick={() => setMyQuestionsFilter(false)}
+          className={`flex-1 tab text-sm font-medium ${
+            myQuestionsFilter === false
+              ? "text-primary tab-active"
+              : "text-base-content/60"
+          }`}
+        >
+          Public Questions
+        </button>
+      </div>
+
+      {/* Filter tabs */}
+      <div className="flex tabs tabs-box">
         <button
           onClick={() => setFilter("all")}
-          className={`flex-1 py-2 text-sm font-medium ${
+          className={`tab flex-1 py-2 text-sm font-medium ${
             filter === "all"
-              ? "text-primary border-b-2 border-primary"
+              ? "text-primary tab-active"
               : "text-base-content/60"
           }`}
         >
@@ -101,9 +129,9 @@ export default function QuestionsSidebar({
         </button>
         <button
           onClick={() => setFilter("answered")}
-          className={`flex-1 py-2 text-sm font-medium ${
+          className={`tab flex-1 py-2 text-sm font-medium ${
             filter === "answered"
-              ? "text-primary border-b-2 border-primary"
+              ? "text-primary tab-active"
               : "text-base-content/60"
           }`}
         >
@@ -111,9 +139,9 @@ export default function QuestionsSidebar({
         </button>
         <button
           onClick={() => setFilter("unanswered")}
-          className={`flex-1 py-2 text-sm font-medium ${
+          className={`tab flex-1 py-2 text-sm font-medium ${
             filter === "unanswered"
-              ? "text-primary border-b-2 border-primary"
+              ? "text-primary tab-active"
               : "text-base-content/60"
           }`}
         >
@@ -124,17 +152,21 @@ export default function QuestionsSidebar({
       {/* Content */}
       <div className="flex-1 overflow-auto p-4 space-y-6">
         {isLoading ? (
-          <div className="flex items-center justify-center py-8">
-            <span className="loading loading-spinner loading-md text-primary"></span>
+          <div className="p-4 space-y-5">
+            <div className="skeleton h-32 w-full"></div>
+            <div className="skeleton h-32 w-full"></div>
           </div>
         ) : error ? (
           <div className="text-center py-8 text-error">
             <p>{error}</p>
-            <button onClick={fetchQuestions} className="btn btn-sm btn-ghost mt-2">
+            <button
+              onClick={fetchQuestions}
+              className="btn btn-sm btn-ghost mt-2"
+            >
               Try Again
             </button>
           </div>
-        ) : (
+        ) : myQuestionsFilter ? (
           <>
             {/* My Questions Section */}
             <div>
@@ -158,10 +190,11 @@ export default function QuestionsSidebar({
 
               {filteredMyQuestions.length === 0 ? (
                 <p className="text-sm text-base-content/50 py-4">
-                  No questions yet. Select text and click &ldquo;Ask Question&rdquo; to get started.
+                  No questions yet. Select text and click &ldquo;Ask
+                  Question&rdquo; to get started.
                 </p>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-5">
                   {filteredMyQuestions.map((question) => (
                     <QuestionCard
                       key={question._id || question.id}
@@ -172,7 +205,9 @@ export default function QuestionsSidebar({
                 </div>
               )}
             </div>
-
+          </>
+        ) : (
+          <>
             {/* Public Q&A Section */}
             <div>
               <h4 className="text-sm font-semibold text-base-content/70 mb-3 flex items-center gap-2">
@@ -198,7 +233,7 @@ export default function QuestionsSidebar({
                   No public Q&A available for this book yet.
                 </p>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-5">
                   {filteredPublicQuestions.map((question) => (
                     <QuestionCard
                       key={question._id || question.id}
@@ -250,61 +285,60 @@ function QuestionCard({ question, onClick, isPublic = false }) {
 
   return (
     <div
-      className={`bg-base-200 rounded-lg p-3 cursor-pointer hover:bg-base-300 transition-colors ${
-        isPublic ? "border-l-4 border-primary" : ""
+      className={`rounded-lg p-3 border border-base-300 ${
+        question.answer ? "" : "bg-base-200"
       }`}
-      onClick={onClick}
     >
-      {/* Header with badges */}
-      <div className="flex items-start justify-between gap-2 mb-2">
-        <div className="flex flex-wrap gap-1">
-          {isPublic && (
-            <span className="badge badge-primary badge-xs">Public</span>
-          )}
-          {question.answer ? (
-            <span className="badge badge-success badge-xs">Answered</span>
-          ) : (
-            <span className="badge badge-warning badge-xs">Pending</span>
-          )}
-          {question.pageNumber && (
-            <span className="badge badge-ghost badge-xs">
-              Page {question.pageNumber}
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* Selected text preview */}
-      {question.selectedText && (
-        <p className="text-xs text-base-content/50 italic mb-2 line-clamp-2">
-          &ldquo;{question.selectedText}&rdquo;
-        </p>
-      )}
-
       {/* Question */}
-      <p className="text-sm font-medium mb-2 line-clamp-2">{question.question}</p>
+      <p className="text-sm font-medium mb-2 line-clamp-2">
+        Q: {question.question}
+      </p>
 
       {/* Answer (if exists) */}
       {question.answer && (
-        <div
-          className={`mt-2 pt-2 border-t border-base-300 ${
-            isExpanded ? "" : "line-clamp-3"
-          }`}
-          onClick={(e) => {
-            e.stopPropagation();
-            setIsExpanded(!isExpanded);
-          }}
-        >
+        <div className={`mt-2 mb-2 pb-2 pt-2 border-b border-base-300`}>
           <p className="text-xs text-base-content/60 mb-1">Answer:</p>
-          <p className="text-sm text-base-content/80">{question.answer}</p>
+          <p
+            className={`text-sm text-base-content/80 ${
+              isExpanded ? "" : "line-clamp-3"
+            }`}
+          >
+            {question.answer}
+          </p>
           {question.answer.length > 150 && (
-            <button className="text-xs text-primary mt-1">
+            <button
+              className="text-xs text-primary mt-1 cursor-pointer"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsExpanded(!isExpanded);
+              }}
+            >
               {isExpanded ? "Show less" : "Show more"}
             </button>
           )}
         </div>
       )}
 
+      {/* footer */}
+      <div className="flex items-start justify-between gap-2 mb-2 ">
+        <div className="flex flex-wrap gap-1">
+          {question.pageNumber && (
+            <span className="text-xs text-base-content/40 mt-2">
+              Page {question.pageNumber}
+            </span>
+          )}
+
+          {/* Selected text preview */}
+          {question.selectedText && (
+            <p
+              className="text-xs text-base-content/40 italic mb-2 line-clamp-2 cursor-pointer"
+              onClick={onClick}
+            >
+              &ldquo;{question.selectedText}&rdquo;
+            </p>
+          )}
+        </div>
+      </div>
       {/* Timestamp */}
       <p className="text-xs text-base-content/40 mt-2">
         {new Date(question.createdAt).toLocaleDateString()}
@@ -312,4 +346,3 @@ function QuestionCard({ question, onClick, isPublic = false }) {
     </div>
   );
 }
-
