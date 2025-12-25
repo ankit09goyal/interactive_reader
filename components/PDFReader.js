@@ -15,6 +15,7 @@ import { usePDFRenderer } from "./PDFReader/hooks/usePDFRenderer";
 import { usePDFNavigation } from "./PDFReader/hooks/usePDFNavigation";
 import { usePDFTextSelection } from "./PDFReader/hooks/usePDFTextSelection";
 import { usePDFContinuousMode } from "./PDFReader/hooks/usePDFContinuousMode";
+import { usePDFHighlights } from "./PDFReader/hooks/usePDFHighlights";
 import { toast } from "react-hot-toast";
 
 export default function PDFReader({
@@ -36,6 +37,10 @@ export default function PDFReader({
   const [sidebarRefreshTrigger, setSidebarRefreshTrigger] = useState(0);
   const [isRendering, setIsRendering] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Store selected text for modal (persists even if selection is cleared)
+  const [modalSelectedText, setModalSelectedText] = useState(null);
+  const [modalPageNumber, setModalPageNumber] = useState(null);
 
   // Load PDF.js and PDF document
   const { pdfjsLibRef, pdfDoc, totalPages, isLoading, error, renderTasksRef } =
@@ -148,6 +153,12 @@ export default function PDFReader({
     showSidebar,
   });
 
+  // Question highlights
+  const { highlights } = usePDFHighlights({
+    bookId,
+    refreshTrigger: sidebarRefreshTrigger,
+  });
+
   // Page rendering logic
   const { renderPageToCanvas } = usePDFRenderer({
     pdfDoc,
@@ -158,6 +169,7 @@ export default function PDFReader({
     containerRef,
     renderTasksRef,
     textLayerRefs,
+    highlights,
   });
 
   // Continuous mode rendering with intersection observer
@@ -215,6 +227,7 @@ export default function PDFReader({
     isLoading,
     isFullscreen,
     renderCurrentPage,
+    highlights,
   ]);
 
   // Handle resize
@@ -269,8 +282,11 @@ export default function PDFReader({
 
   // Handle asking question from selection menu
   const handleAskQuestion = () => {
+    // Store selected text and page number before opening modal
+    // This ensures they persist even if selection gets cleared
+    setModalSelectedText(selectedText);
+    setModalPageNumber(selectionPageNumber || currentPage);
     setShowQuestionModal(true);
-    clearSelection();
   };
 
   // Handle adding question without text selection
@@ -280,8 +296,11 @@ export default function PDFReader({
 
   // Handle creating public Q&A from selection menu (admin only)
   const handleCreatePublicQA = () => {
+    // Store selected text and page number before opening modal
+    // This ensures they persist even if selection gets cleared
+    setModalSelectedText(selectedText);
+    setModalPageNumber(selectionPageNumber || currentPage);
     setShowAdminCreateModal(true);
-    clearSelection();
   };
 
   // Handle question created
@@ -361,10 +380,12 @@ export default function PDFReader({
           isOpen={showQuestionModal}
           onClose={() => {
             setShowQuestionModal(false);
+            setModalSelectedText(null);
+            setModalPageNumber(null);
             clearSelection();
           }}
-          selectedText={selectedText}
-          pageNumber={selectionPageNumber || currentPage}
+          selectedText={modalSelectedText || selectedText}
+          pageNumber={modalPageNumber || selectionPageNumber || currentPage}
           bookId={bookId}
           isAdmin={isAdmin}
           onQuestionCreated={handleQuestionCreated}
@@ -377,11 +398,13 @@ export default function PDFReader({
           isOpen={showAdminCreateModal}
           onClose={() => {
             setShowAdminCreateModal(false);
+            setModalSelectedText(null);
+            setModalPageNumber(null);
             clearSelection();
           }}
           bookId={bookId}
-          selectedText={selectedText}
-          pageNumber={selectionPageNumber}
+          selectedText={modalSelectedText || selectedText}
+          pageNumber={modalPageNumber || selectionPageNumber}
           onQuestionCreated={handleQuestionCreated}
         />
       )}

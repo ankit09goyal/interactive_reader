@@ -439,11 +439,11 @@ function QuestionCard({
 
       {/* footer */}
       <div className="flex items-start justify-between gap-2 mb-2 ">
-        <div className="flex flex-wrap gap-1">
+        <div className="flex flex-col flex-wrap gap-1">
           {question.pageNumber && (
-            <span className="text-xs text-base-content/40 mt-2">
+            <p className="text-xs text-base-content/40 mt-2">
               Page {question.pageNumber}
-            </span>
+            </p>
           )}
 
           {/* Selected text preview */}
@@ -452,7 +452,7 @@ function QuestionCard({
               className="text-xs text-base-content/40 italic mb-2 line-clamp-2 cursor-pointer"
               onClick={onClick}
             >
-              &ldquo;{question.selectedText}&rdquo;
+              {question.selectedText}
             </p>
           )}
         </div>

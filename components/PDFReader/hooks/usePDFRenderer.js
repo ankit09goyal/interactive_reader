@@ -14,7 +14,130 @@ export function usePDFRenderer({
   containerRef,
   renderTasksRef,
   textLayerRefs,
+  highlights = [],
 }) {
+  // Apply highlights to text layer after rendering
+  const applyHighlights = useCallback(
+    (pageNum) => {
+      const textLayerDiv = textLayerRefs.current.get(pageNum);
+      if (!textLayerDiv) return;
+
+      // Get highlights for this page
+      const pageHighlights = highlights.filter((h) => h.pageNumber === pageNum);
+      if (pageHighlights.length === 0) return;
+
+      // Get all text spans (excluding already highlighted ones)
+      let textSpans = Array.from(
+        textLayerDiv.querySelectorAll("span:not(.pdf-highlight)")
+      );
+      if (textSpans.length === 0) return;
+
+      // Apply each highlight
+      pageHighlights.forEach((highlight) => {
+        const highlightText = highlight.text.trim();
+        if (!highlightText) return;
+
+        // Build full text from current spans
+        const fullText = textSpans.map((span) => span.textContent).join("");
+
+        // Simple text search (case-insensitive, normalize whitespace)
+        const searchText = highlightText.replace(/\s+/g, " ").toLowerCase();
+        const normalizedFullText = fullText.replace(/\s+/g, " ").toLowerCase();
+        const searchIndex = normalizedFullText.indexOf(searchText);
+
+        if (searchIndex === -1) return;
+
+        // Find character position in original text
+        // Map normalized position back to original
+        let originalIndex = 0;
+        let normalizedPos = 0;
+        for (let i = 0; i < fullText.length && normalizedPos < searchIndex; i++) {
+          const char = fullText[i];
+          if (!char.match(/\s/) || (i > 0 && !fullText[i - 1].match(/\s/))) {
+            normalizedPos++;
+          }
+          if (normalizedPos <= searchIndex) {
+            originalIndex = i + 1;
+          }
+        }
+
+        // Find spans that contain the highlight
+        let charCount = 0;
+        const spansToModify = [];
+
+        for (const span of textSpans) {
+          const spanText = span.textContent;
+          const spanStart = charCount;
+          const spanEnd = charCount + spanText.length;
+
+          if (originalIndex < spanEnd && originalIndex + highlightText.length > spanStart) {
+            const startOffset = Math.max(0, originalIndex - spanStart);
+            const endOffset = Math.min(spanText.length, originalIndex + highlightText.length - spanStart);
+            spansToModify.push({ span, startOffset, endOffset });
+          }
+
+          charCount = spanEnd;
+        }
+
+        // Apply highlight (process in reverse to maintain DOM structure)
+        for (let i = spansToModify.length - 1; i >= 0; i--) {
+          const { span, startOffset, endOffset } = spansToModify[i];
+          const spanText = span.textContent;
+          const before = spanText.substring(0, startOffset);
+          const highlightPart = spanText.substring(startOffset, endOffset);
+          const after = spanText.substring(endOffset);
+
+          if (highlightPart) {
+            // Create highlight span with same styling
+            const highlightSpan = document.createElement("span");
+            highlightSpan.textContent = highlightPart;
+            highlightSpan.className = "pdf-highlight";
+            highlightSpan.style.backgroundColor = "rgba(255, 255, 0, 0.3)";
+            highlightSpan.style.color = "transparent";
+            highlightSpan.style.position = span.style.position;
+            highlightSpan.style.left = span.style.left;
+            highlightSpan.style.top = span.style.top;
+            highlightSpan.style.fontSize = span.style.fontSize;
+            highlightSpan.style.fontFamily = span.style.fontFamily;
+            highlightSpan.style.whiteSpace = span.style.whiteSpace;
+            highlightSpan.style.cursor = "text";
+            highlightSpan.dataset.questionId = highlight.questionId;
+            highlightSpan.dataset.pageNum = pageNum;
+
+            // Update original span
+            span.textContent = before;
+
+            // Insert highlight and after text if needed
+            if (after) {
+              const afterSpan = span.cloneNode(false);
+              afterSpan.textContent = after;
+              Object.assign(afterSpan.style, {
+                position: span.style.position,
+                left: span.style.left,
+                top: span.style.top,
+                fontSize: span.style.fontSize,
+                fontFamily: span.style.fontFamily,
+                whiteSpace: span.style.whiteSpace,
+                cursor: "text",
+              });
+              afterSpan.dataset.pageNum = pageNum;
+              span.parentNode.insertBefore(highlightSpan, span.nextSibling);
+              span.parentNode.insertBefore(afterSpan, highlightSpan.nextSibling);
+            } else {
+              span.parentNode.insertBefore(highlightSpan, span.nextSibling);
+            }
+          }
+        }
+
+        // Refresh textSpans list for next highlight
+        textSpans = Array.from(
+          textLayerDiv.querySelectorAll("span:not(.pdf-highlight)")
+        );
+      });
+    },
+    [highlights, textLayerRefs]
+  );
+
   // Render text layer for a page
   const renderTextLayer = useCallback(
     async (page, viewport, pageNum) => {
@@ -53,11 +176,16 @@ export function usePDFRenderer({
 
           textLayerDiv.appendChild(span);
         });
+
+        // Apply highlights after rendering text
+        setTimeout(() => {
+          applyHighlights(pageNum);
+        }, 0);
       } catch (err) {
         console.error(`Error rendering text layer for page ${pageNum}:`, err);
       }
     },
-    [pdfjsLibRef, textLayerRefs]
+    [pdfjsLibRef, textLayerRefs, applyHighlights]
   );
 
   // Render a single page to a canvas with text layer
