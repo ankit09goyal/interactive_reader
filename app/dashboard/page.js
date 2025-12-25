@@ -1,11 +1,9 @@
 import Link from "next/link";
-import ButtonAccount from "@/components/ButtonAccount";
 import UserBookList from "@/components/UserBookList";
 import { auth } from "@/libs/auth";
 import { isAdmin } from "@/libs/roles";
 import connectMongo from "@/libs/mongoose";
 import UserBookAccess from "@/models/UserBookAccess";
-import Book from "@/models/Book";
 
 export const dynamic = "force-dynamic";
 
@@ -62,7 +60,6 @@ export default async function Dashboard() {
     <main className="min-h-screen p-8 pb-24">
       <section className="max-w-3xl mx-auto space-y-8">
         <div className="flex items-center justify-between">
-          <ButtonAccount />
           {userIsAdmin && (
             <Link href="/admin" className="btn btn-primary btn-sm gap-2">
               <svg

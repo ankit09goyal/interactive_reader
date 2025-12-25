@@ -18,7 +18,7 @@ const ButtonLogout = () => {
   return (
     <>
       <button
-        className="btn btn-outline hover:bg-error/20 hover:text-error duration-200 py-1.5 px-4 rounded-lg font-medium cursor-pointer"
+        className="btn btn-outline hover:btn-neutral duration-200 py-1.5 px-4 rounded-lg font-medium cursor-pointer"
         onClick={handleSignOut}
       >
         <svg
