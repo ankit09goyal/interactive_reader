@@ -15,6 +15,7 @@ import { usePDFRenderer } from "./PDFReader/hooks/usePDFRenderer";
 import { usePDFNavigation } from "./PDFReader/hooks/usePDFNavigation";
 import { usePDFTextSelection } from "./PDFReader/hooks/usePDFTextSelection";
 import { usePDFContinuousMode } from "./PDFReader/hooks/usePDFContinuousMode";
+import { toast } from "react-hot-toast";
 
 export default function PDFReader({
   filePath,
@@ -272,6 +273,11 @@ export default function PDFReader({
     clearSelection();
   };
 
+  // Handle adding question without text selection
+  const handleAddQuestion = () => {
+    setShowQuestionModal(true);
+  };
+
   // Handle creating public Q&A from selection menu (admin only)
   const handleCreatePublicQA = () => {
     setShowAdminCreateModal(true);
@@ -282,6 +288,7 @@ export default function PDFReader({
   const handleQuestionCreated = () => {
     clearSelection();
     setSidebarRefreshTrigger((prev) => prev + 1);
+    toast.success("Question created successfully");
   };
 
   if (error) {
@@ -357,7 +364,7 @@ export default function PDFReader({
             clearSelection();
           }}
           selectedText={selectedText}
-          pageNumber={selectionPageNumber}
+          pageNumber={selectionPageNumber || currentPage}
           bookId={bookId}
           isAdmin={isAdmin}
           onQuestionCreated={handleQuestionCreated}
@@ -387,6 +394,7 @@ export default function PDFReader({
           bookId={bookId}
           onGoToPage={goToPage}
           refreshTrigger={sidebarRefreshTrigger}
+          onAddQuestion={handleAddQuestion}
         />
       )}
     </div>

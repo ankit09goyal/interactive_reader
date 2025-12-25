@@ -133,9 +133,14 @@ export default function BookList({ books: initialBooks, onBooksChange }) {
 
   return (
     <>
-      <div className="bg-base-200 rounded-xl border border-base-300 overflow-hidden">
+      <div className="bg-base-100 rounded-xl border border-base-300 overflow-hidden">
         <div className="p-4 border-b border-base-300">
-          <h3 className="font-semibold">Your Books ({books.length})</h3>
+          <h3 className="font-semibold">
+            Your Books{" "}
+            <span className="badge badge-sm badge-neutral ml-2">
+              {books.length}
+            </span>
+          </h3>
         </div>
         <div className="divide-y divide-base-300">
           {books.map((book) => (
@@ -158,7 +163,7 @@ export default function BookList({ books: initialBooks, onBooksChange }) {
                   </p>
                 )}
                 <div className="flex flex-wrap gap-2 mt-2">
-                  <span className="badge badge-sm">
+                  <span className="badge badge-sm badge-ghost">
                     {book.fileType ||
                       (book.mimeType === "application/pdf" ? "PDF" : "EPUB")}
                   </span>

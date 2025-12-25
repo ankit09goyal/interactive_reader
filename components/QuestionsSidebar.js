@@ -1,7 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
+import { toast } from "react-hot-toast";
 import apiClient from "@/libs/api";
+import QuestionDeleteModal from "./QuestionDeleteModal";
 
 /**
  * QuestionsSidebar - Sidebar panel showing questions for the current book
@@ -13,6 +16,7 @@ export default function QuestionsSidebar({
   bookId,
   onGoToPage,
   refreshTrigger = 0,
+  onAddQuestion,
 }) {
   const [questions, setQuestions] = useState({
     myQuestions: [],
@@ -22,6 +26,10 @@ export default function QuestionsSidebar({
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState("all"); // "all", "answered", "unanswered"
   const [myQuestionsFilter, setMyQuestionsFilter] = useState(true);
+  const [deleteModalQuestion, setDeleteModalQuestion] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const { data: session } = useSession();
+  const currentUserId = session?.user?.id;
 
   // Fetch questions when sidebar opens or refresh is triggered
   useEffect(() => {
@@ -66,6 +74,32 @@ export default function QuestionsSidebar({
     }
   };
 
+  // Handle delete question - opens modal
+  const handleDeleteQuestion = (question) => {
+    setDeleteModalQuestion(question);
+  };
+
+  // Confirm delete question
+  const handleDeleteConfirm = async () => {
+    if (!deleteModalQuestion) return;
+
+    setIsDeleting(true);
+    try {
+      await apiClient.delete(
+        `/user/questions/${deleteModalQuestion._id || deleteModalQuestion.id}`
+      );
+      toast.success("Question deleted successfully");
+      setDeleteModalQuestion(null);
+      // Refresh questions list
+      fetchQuestions();
+    } catch (err) {
+      console.error("Error deleting question:", err);
+      toast.error(err.message || "Failed to delete question");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -73,22 +107,48 @@ export default function QuestionsSidebar({
       {/* Header */}
       <div className="flex items-center justify-between p-5 border-b border-base-300">
         <h3 className="text-lg font-semibold">Questions & Answers</h3>
-        <button onClick={onClose} className="btn btn-ghost btn-sm btn-square">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-5 w-5"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M6 18L18 6M6 6l12 12"
-            />
-          </svg>
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Add Question button */}
+          {onAddQuestion && (
+            <button
+              onClick={onAddQuestion}
+              className="btn btn-primary btn-sm gap-1"
+              title="Add Question"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 4v16m8-8H4"
+                />
+              </svg>
+              <span className="hidden sm:inline text-xs">Add</span>
+            </button>
+          )}
+          <button onClick={onClose} className="btn btn-ghost btn-sm btn-square">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-5 w-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
+        </div>
       </div>
 
       {/* Filter tabs */}
@@ -200,6 +260,8 @@ export default function QuestionsSidebar({
                       key={question._id || question.id}
                       question={question}
                       onClick={() => handleQuestionClick(question)}
+                      currentUserId={currentUserId}
+                      onDelete={handleDeleteQuestion}
                     />
                   ))}
                 </div>
@@ -240,6 +302,8 @@ export default function QuestionsSidebar({
                       question={question}
                       onClick={() => handleQuestionClick(question)}
                       isPublic
+                      currentUserId={currentUserId}
+                      onDelete={handleDeleteQuestion}
                     />
                   ))}
                 </div>
@@ -273,6 +337,16 @@ export default function QuestionsSidebar({
           Refresh
         </button>
       </div>
+
+      {/* Delete Question Modal */}
+      {deleteModalQuestion && (
+        <QuestionDeleteModal
+          question={deleteModalQuestion}
+          onClose={() => setDeleteModalQuestion(null)}
+          onConfirm={handleDeleteConfirm}
+          isDeleting={isDeleting}
+        />
+      )}
     </div>
   );
 }
@@ -280,8 +354,28 @@ export default function QuestionsSidebar({
 /**
  * QuestionCard - Individual question display card
  */
-function QuestionCard({ question, onClick, isPublic = false }) {
+function QuestionCard({
+  question,
+  onClick,
+  isPublic = false,
+  currentUserId,
+  onDelete,
+}) {
   const [isExpanded, setIsExpanded] = useState(false);
+
+  // Check if current user owns this question and can delete it
+  const canDelete =
+    currentUserId &&
+    question.userId &&
+    question.userId.toString() === currentUserId &&
+    !question.isAdminCreated &&
+    !isPublic;
+
+  const handleDelete = (e) => {
+    e.stopPropagation();
+    if (!canDelete || !onDelete) return;
+    onDelete(question);
+  };
 
   return (
     <div
@@ -289,10 +383,34 @@ function QuestionCard({ question, onClick, isPublic = false }) {
         question.answer ? "" : "bg-base-200"
       }`}
     >
-      {/* Question */}
-      <p className="text-sm font-medium mb-2 line-clamp-2">
-        Q: {question.question}
-      </p>
+      {/* Question header with delete button */}
+      <div className="flex items-start justify-between gap-2 mb-2">
+        <p className="text-sm font-medium line-clamp-2 flex-1">
+          Q: {question.question}
+        </p>
+        {canDelete && (
+          <button
+            onClick={handleDelete}
+            className="btn btn-ghost btn-xs text-error hover:bg-error/20 shrink-0"
+            title="Delete question"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+              />
+            </svg>
+          </button>
+        )}
+      </div>
 
       {/* Answer (if exists) */}
       {question.answer && (

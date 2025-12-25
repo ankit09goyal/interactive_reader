@@ -152,6 +152,15 @@ export default function QuestionModal({
             </div>
           )}
 
+          {/* Page number (shown when no selected text) */}
+          {!selectedText && pageNumber && (
+            <div className="bg-base-200 rounded-lg p-3">
+              <p className="text-xs text-base-content/60">
+                Page {pageNumber}
+              </p>
+            </div>
+          )}
+
           {/* Question input */}
           <div>
             <label className="label">
@@ -161,7 +170,11 @@ export default function QuestionModal({
               ref={textareaRef}
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
-              placeholder="What would you like to know about this text?"
+              placeholder={
+                selectedText
+                  ? "What would you like to know about this text?"
+                  : "What would you like to know?"
+              }
               className="textarea textarea-bordered w-full h-24 resize-none"
               disabled={isLoading}
             />
