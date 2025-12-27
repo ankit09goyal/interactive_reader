@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import apiClient from "@/libs/api";
+import toast from "react-hot-toast";
 
 /**
  * usePDFNavigation - Custom hook for PDF navigation, zoom, and keyboard controls
@@ -96,8 +97,14 @@ export function usePDFNavigation({
   );
 
   // Zoom handlers
-  const zoomIn = useCallback(() => setScale((prev) => Math.min(prev + 0.25, 3)), []);
-  const zoomOut = useCallback(() => setScale((prev) => Math.max(prev - 0.25, 0.5)), []);
+  const zoomIn = useCallback(
+    () => setScale((prev) => Math.min(prev + 0.25, 3)),
+    []
+  );
+  const zoomOut = useCallback(
+    () => setScale((prev) => Math.max(prev - 0.25, 0.5)),
+    []
+  );
   const resetZoom = useCallback(() => setScale(1), []);
 
   // Handle fullscreen change
@@ -115,8 +122,10 @@ export function usePDFNavigation({
   useEffect(() => {
     const handleKeyDown = (e) => {
       // Don't handle keys if modal is open
-      if (showQuestionModal || showAdminCreateModal || showSidebar) return;
-
+      if (showQuestionModal || showAdminCreateModal || showSidebar) {
+        toast.error("To use keyboard navigation, please close the modal first");
+        return;
+      }
       switch (e.key) {
         case "ArrowLeft":
           goToPreviousPage();
@@ -182,4 +191,3 @@ export function usePDFNavigation({
     resetZoom,
   };
 }
-

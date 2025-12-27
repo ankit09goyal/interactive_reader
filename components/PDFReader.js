@@ -42,6 +42,10 @@ export default function PDFReader({
   const [modalSelectedText, setModalSelectedText] = useState(null);
   const [modalPageNumber, setModalPageNumber] = useState(null);
 
+  // Store question ID to highlight in sidebar
+  const [highlightedQuestionId, setHighlightedQuestionId] = useState(null);
+  const [highlightedTextClicked, setHighlightedTextClicked] = useState(0);
+
   // Load PDF.js and PDF document
   const { pdfjsLibRef, pdfDoc, totalPages, isLoading, error, renderTasksRef } =
     usePDFLoader(filePath);
@@ -159,6 +163,14 @@ export default function PDFReader({
     refreshTrigger: sidebarRefreshTrigger,
   });
 
+  // Handle highlight click - open sidebar and highlight question
+  const handleHighlightClick = useCallback((questionId) => {
+    setHighlightedQuestionId(questionId);
+    setShowSidebar(true);
+    // Use functional update to always get the latest value
+    setHighlightedTextClicked((prev) => prev + 1);
+  }, []);
+
   // Page rendering logic
   const { renderPageToCanvas } = usePDFRenderer({
     pdfDoc,
@@ -170,6 +182,7 @@ export default function PDFReader({
     renderTasksRef,
     textLayerRefs,
     highlights,
+    onHighlightClick: handleHighlightClick,
   });
 
   // Continuous mode rendering with intersection observer
@@ -413,11 +426,16 @@ export default function PDFReader({
       {bookId && (
         <QuestionsSidebar
           isOpen={showSidebar}
-          onClose={() => setShowSidebar(false)}
+          onClose={() => {
+            setShowSidebar(false);
+            setHighlightedQuestionId(null);
+          }}
           bookId={bookId}
           onGoToPage={goToPage}
           refreshTrigger={sidebarRefreshTrigger}
           onAddQuestion={handleAddQuestion}
+          highlightedQuestionId={highlightedQuestionId}
+          highlightedTextClicked={highlightedTextClicked}
         />
       )}
     </div>

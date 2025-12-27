@@ -15,6 +15,7 @@ export function usePDFRenderer({
   renderTasksRef,
   textLayerRefs,
   highlights = [],
+  onHighlightClick,
 }) {
   // Apply highlights to text layer after rendering
   const applyHighlights = useCallback(
@@ -51,7 +52,11 @@ export function usePDFRenderer({
         // Map normalized position back to original
         let originalIndex = 0;
         let normalizedPos = 0;
-        for (let i = 0; i < fullText.length && normalizedPos < searchIndex; i++) {
+        for (
+          let i = 0;
+          i < fullText.length && normalizedPos < searchIndex;
+          i++
+        ) {
           const char = fullText[i];
           if (!char.match(/\s/) || (i > 0 && !fullText[i - 1].match(/\s/))) {
             normalizedPos++;
@@ -70,9 +75,15 @@ export function usePDFRenderer({
           const spanStart = charCount;
           const spanEnd = charCount + spanText.length;
 
-          if (originalIndex < spanEnd && originalIndex + highlightText.length > spanStart) {
+          if (
+            originalIndex < spanEnd &&
+            originalIndex + highlightText.length > spanStart
+          ) {
             const startOffset = Math.max(0, originalIndex - spanStart);
-            const endOffset = Math.min(spanText.length, originalIndex + highlightText.length - spanStart);
+            const endOffset = Math.min(
+              spanText.length,
+              originalIndex + highlightText.length - spanStart
+            );
             spansToModify.push({ span, startOffset, endOffset });
           }
 
@@ -100,9 +111,26 @@ export function usePDFRenderer({
             highlightSpan.style.fontSize = span.style.fontSize;
             highlightSpan.style.fontFamily = span.style.fontFamily;
             highlightSpan.style.whiteSpace = span.style.whiteSpace;
-            highlightSpan.style.cursor = "text";
+            highlightSpan.style.cursor = "pointer";
             highlightSpan.dataset.questionId = highlight.questionId;
             highlightSpan.dataset.pageNum = pageNum;
+
+            // Make highlight clickable
+            if (onHighlightClick) {
+              highlightSpan.addEventListener("click", (e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                onHighlightClick(highlight.questionId);
+              });
+              // Add hover effect
+              highlightSpan.style.transition = "background-color 0.2s";
+              highlightSpan.addEventListener("mouseenter", () => {
+                highlightSpan.style.backgroundColor = "rgba(255, 255, 0, 0.5)";
+              });
+              highlightSpan.addEventListener("mouseleave", () => {
+                highlightSpan.style.backgroundColor = "rgba(255, 255, 0, 0.3)";
+              });
+            }
 
             // Update original span
             span.textContent = before;
@@ -122,7 +150,10 @@ export function usePDFRenderer({
               });
               afterSpan.dataset.pageNum = pageNum;
               span.parentNode.insertBefore(highlightSpan, span.nextSibling);
-              span.parentNode.insertBefore(afterSpan, highlightSpan.nextSibling);
+              span.parentNode.insertBefore(
+                afterSpan,
+                highlightSpan.nextSibling
+              );
             } else {
               span.parentNode.insertBefore(highlightSpan, span.nextSibling);
             }
@@ -135,7 +166,7 @@ export function usePDFRenderer({
         );
       });
     },
-    [highlights, textLayerRefs]
+    [highlights, textLayerRefs, onHighlightClick]
   );
 
   // Render text layer for a page
@@ -269,9 +300,16 @@ export function usePDFRenderer({
         return false;
       }
     },
-    [pdfDoc, scale, viewMode, isFullscreen, containerRef, renderTasksRef, renderTextLayer]
+    [
+      pdfDoc,
+      scale,
+      viewMode,
+      isFullscreen,
+      containerRef,
+      renderTasksRef,
+      renderTextLayer,
+    ]
   );
 
   return { renderPageToCanvas };
 }
-
