@@ -323,6 +323,11 @@ export default function PDFReader({
     toast.success("Question created successfully");
   };
 
+  // Handle question deleted - refresh highlights
+  const handleQuestionDeleted = () => {
+    setSidebarRefreshTrigger((prev) => prev + 1);
+  };
+
   if (error) {
     return <PDFError error={error} onRetry={() => window.location.reload()} />;
   }
@@ -436,6 +441,7 @@ export default function PDFReader({
           onAddQuestion={handleAddQuestion}
           highlightedQuestionId={highlightedQuestionId}
           highlightedTextClicked={highlightedTextClicked}
+          onQuestionDeleted={handleQuestionDeleted}
         />
       )}
     </div>

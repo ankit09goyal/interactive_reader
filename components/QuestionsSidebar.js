@@ -256,6 +256,7 @@ export default function QuestionsSidebar({
   onAddQuestion,
   highlightedQuestionId = null,
   highlightedTextClicked = 0,
+  onQuestionDeleted,
 }) {
   const [questions, setQuestions] = useState({
     myQuestions: [],
@@ -372,6 +373,10 @@ export default function QuestionsSidebar({
       toast.success("Question deleted successfully");
       setDeleteModalQuestion(null);
       fetchQuestions();
+      // Notify parent to refresh highlights
+      if (onQuestionDeleted) {
+        onQuestionDeleted();
+      }
     } catch (err) {
       console.error("Error deleting question:", err);
       toast.error(err.message || "Failed to delete question");
