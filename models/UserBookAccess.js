@@ -26,6 +26,28 @@ const userBookAccessSchema = mongoose.Schema(
       required: true,
       index: true,
     },
+    // Reading preferences for this specific book
+    readingPreferences: {
+      // Last page the user was reading
+      lastPage: {
+        type: Number,
+        default: 1,
+        min: 1,
+      },
+      // View mode preference for this book
+      viewMode: {
+        type: String,
+        enum: ["one-page", "continuous"],
+        default: "one-page",
+      },
+      // Zoom scale for this book
+      scale: {
+        type: Number,
+        default: 1.0,
+        min: 0.5,
+        max: 3.0,
+      },
+    },
   },
   {
     timestamps: true,

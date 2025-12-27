@@ -55,37 +55,180 @@ export default function PDFReader({
   const [renderedPages, setRenderedPages] = useState(new Set([1]));
   const renderedPagesRef = useRef(new Set([1]));
   const isTransitioningModeRef = useRef(false);
+  const scrolledToInitialRef = useRef(false);
 
-  // Load user preferences for view mode
+  // Book preferences state
+  const [preferencesLoaded, setPreferencesLoaded] = useState(false);
+  const [initialPage, setInitialPage] = useState(1);
+  const [initialScale, setInitialScale] = useState(1.0);
+
+  // Refs for debounced saving and tracking pending changes
+  const savePageTimeoutRef = useRef(null);
+  const saveScaleTimeoutRef = useRef(null);
+  const pendingPageRef = useRef(null);
+  const pendingScaleRef = useRef(null);
+  const bookIdRef = useRef(bookId);
+
+  // Keep bookId ref updated
   useEffect(() => {
-    const loadPreferences = async () => {
+    bookIdRef.current = bookId;
+  }, [bookId]);
+
+  // Load book-specific preferences on mount
+  useEffect(() => {
+    const loadBookPreferences = async () => {
+      if (!bookId) {
+        setPreferencesLoaded(true);
+        return;
+      }
+
       try {
-        const response = await apiClient.get("/user/preferences");
-        if (response?.preferences?.readerViewMode) {
-          setViewModeState(response.preferences.readerViewMode);
+        const response = await apiClient.get(
+          `/user/books/${bookId}/preferences`
+        );
+        if (response?.preferences) {
+          const { lastPage, viewMode, scale } = response.preferences;
+          setInitialPage(lastPage || 1);
+          setViewModeState(viewMode || "one-page");
+          setInitialScale(scale || 1.0);
         }
       } catch (err) {
-        // Silently use default (one-page) on error
+        // Silently use defaults on error
+        console.error("Failed to load book preferences:", err);
+      } finally {
+        setPreferencesLoaded(true);
       }
     };
-    loadPreferences();
+
+    loadBookPreferences();
+  }, [bookId]);
+
+  // Save pending preferences before unmount or page unload
+  useEffect(() => {
+    const flushPendingPreferences = () => {
+      if (!bookIdRef.current) return;
+
+      const updates = {};
+      if (pendingPageRef.current !== null) {
+        updates.lastPage = pendingPageRef.current;
+      }
+      if (pendingScaleRef.current !== null) {
+        updates.scale = pendingScaleRef.current;
+      }
+
+      if (Object.keys(updates).length > 0) {
+        // Use sendBeacon for reliable save on page unload
+        const url = `/api/user/books/${bookIdRef.current}/preferences`;
+        const data = JSON.stringify(updates);
+        navigator.sendBeacon(
+          url,
+          new Blob([data], { type: "application/json" })
+        );
+      }
+    };
+
+    // Handle page unload (closing tab, navigating to external URL)
+    window.addEventListener("beforeunload", flushPendingPreferences);
+
+    // Handle component unmount (internal navigation)
+    return () => {
+      window.removeEventListener("beforeunload", flushPendingPreferences);
+
+      // Clear timeouts
+      if (savePageTimeoutRef.current) clearTimeout(savePageTimeoutRef.current);
+      if (saveScaleTimeoutRef.current)
+        clearTimeout(saveScaleTimeoutRef.current);
+
+      if (!bookIdRef.current) return;
+
+      const updates = {};
+      if (pendingPageRef.current !== null) {
+        updates.lastPage = pendingPageRef.current;
+      }
+      if (pendingScaleRef.current !== null) {
+        updates.scale = pendingScaleRef.current;
+      }
+
+      if (Object.keys(updates).length > 0) {
+        // Fire and forget - we're unmounting so can't await
+        apiClient
+          .put(`/user/books/${bookIdRef.current}/preferences`, updates)
+          .catch((err) =>
+            console.error("[PDFReader] Unmount save failed:", err)
+          );
+      }
+    };
   }, []);
 
-  // Save view mode preference
-  const saveViewModePreference = async (mode) => {
-    try {
-      await apiClient.put("/user/preferences", { readerViewMode: mode });
-    } catch (err) {
-      console.error("Failed to save preference:", err);
-    }
-  };
+  // Save book preferences (debounced for page/scale, immediate for viewMode)
+  const saveBookPreferences = useCallback(
+    async (updates, immediate = false) => {
+      if (!bookId) return;
+
+      const savePrefs = async () => {
+        try {
+          const result = await apiClient.put(
+            `/user/books/${bookId}/preferences`,
+            updates
+          );
+          // Clear pending refs after successful save
+          if (updates.lastPage !== undefined) pendingPageRef.current = null;
+          if (updates.scale !== undefined) pendingScaleRef.current = null;
+        } catch (err) {
+          console.error("Failed to save book preferences:", err);
+        }
+      };
+
+      if (immediate) {
+        savePrefs();
+      } else if (updates.lastPage !== undefined) {
+        // Track pending page change
+        pendingPageRef.current = updates.lastPage;
+        // Debounce page saves by 2 seconds
+        if (savePageTimeoutRef.current)
+          clearTimeout(savePageTimeoutRef.current);
+        savePageTimeoutRef.current = setTimeout(savePrefs, 2000);
+      } else if (updates.scale !== undefined) {
+        // Track pending scale change
+        pendingScaleRef.current = updates.scale;
+        // Debounce scale saves by 1 second
+        if (saveScaleTimeoutRef.current)
+          clearTimeout(saveScaleTimeoutRef.current);
+        saveScaleTimeoutRef.current = setTimeout(savePrefs, 1000);
+      }
+    },
+    [bookId]
+  );
+
+  // Save view mode immediately when changed
+  const saveViewModePreference = useCallback(
+    async (mode) => {
+      saveBookPreferences({ viewMode: mode }, true);
+    },
+    [saveBookPreferences]
+  );
+
+  // Stable callbacks for page and scale changes
+  const handlePageChange = useCallback(
+    (page) => {
+      saveBookPreferences({ lastPage: page });
+    },
+    [saveBookPreferences]
+  );
+
+  const handleScaleChange = useCallback(
+    (newScale) => {
+      saveBookPreferences({ scale: newScale });
+    },
+    [saveBookPreferences]
+  );
 
   // Toggle view mode
   const toggleViewMode = useCallback(() => {
     const newMode = viewModeState === "one-page" ? "continuous" : "one-page";
     setViewModeState(newMode);
     saveViewModePreference(newMode);
-  }, [viewModeState]);
+  }, [viewModeState, saveViewModePreference]);
 
   // Navigation and zoom controls
   const {
@@ -111,6 +254,11 @@ export default function PDFReader({
     toggleViewMode,
     clearSelection: () => {}, // Will be set after text selection hook
     setShowSidebar,
+    initialPage: preferencesLoaded ? initialPage : 1,
+    initialScale: preferencesLoaded ? initialScale : 1.0,
+    preferencesLoaded,
+    onPageChange: handlePageChange,
+    onScaleChange: handleScaleChange,
   });
 
   // Update toggleViewMode to use currentPage
@@ -202,15 +350,53 @@ export default function PDFReader({
     scale,
   });
 
-  // Reset current page when PDF loads
+  // Initialize current page when PDF loads and preferences are ready
   useEffect(() => {
-    if (pdfDoc && totalPages > 0) {
-      setCurrentPage(1);
-      const initialSet = new Set([1]);
+    if (pdfDoc && totalPages > 0 && preferencesLoaded) {
+      // Clamp initial page to valid range
+      const validPage = Math.min(Math.max(1, initialPage), totalPages);
+      setCurrentPage(validPage);
+      const initialSet = new Set([validPage]);
       renderedPagesRef.current = initialSet;
       setRenderedPages(initialSet);
     }
-  }, [pdfDoc, totalPages, setCurrentPage, renderedPagesRef, setRenderedPages]);
+  }, [
+    pdfDoc,
+    totalPages,
+    preferencesLoaded,
+    initialPage,
+    setCurrentPage,
+    renderedPagesRef,
+    setRenderedPages,
+  ]);
+
+  // In continuous mode, scroll to the saved page after preferences load
+  useEffect(() => {
+    if (
+      viewModeState === "continuous" &&
+      preferencesLoaded &&
+      pdfDoc &&
+      !isLoading &&
+      !scrolledToInitialRef.current
+    ) {
+      scrolledToInitialRef.current = true;
+      const validPage = Math.min(Math.max(1, initialPage), totalPages || 1);
+      // Defer to allow DOM to paint
+      setTimeout(() => {
+        const target = document.querySelector(`[data-page="${validPage}"]`);
+        if (target) {
+          target.scrollIntoView({ behavior: "auto", block: "start" });
+        }
+      }, 50);
+    }
+  }, [
+    viewModeState,
+    preferencesLoaded,
+    pdfDoc,
+    isLoading,
+    initialPage,
+    totalPages,
+  ]);
 
   // Render current page for one-page mode
   const renderCurrentPage = useCallback(async () => {

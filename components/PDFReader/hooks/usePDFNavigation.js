@@ -1,7 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import apiClient from "@/libs/api";
+import { useCallback, useEffect, useState, useRef } from "react";
 import toast from "react-hot-toast";
 
 /**
@@ -18,25 +17,52 @@ export function usePDFNavigation({
   toggleViewMode,
   clearSelection,
   setShowSidebar,
+  initialPage = 1,
+  initialScale = 1.0,
+  preferencesLoaded = false,
+  onPageChange,
+  onScaleChange,
 }) {
-  const [currentPage, setCurrentPage] = useState(1);
-  const [scale, setScale] = useState(1.0);
+  const [currentPage, setCurrentPage] = useState(initialPage);
+  const [scale, setScale] = useState(initialScale);
+  const initializedRef = useRef(false);
+  const prevPageRef = useRef(initialPage);
+  const prevScaleRef = useRef(initialScale);
 
-  // Load user preferences in background (non-blocking)
+  // Initialize from preferences when they're loaded
   useEffect(() => {
-    const loadPreferences = async () => {
-      try {
-        const response = await apiClient.get("/user/preferences");
-        if (response?.preferences?.readerViewMode) {
-          // View mode is handled by parent, but we can load other preferences here
-        }
-      } catch (err) {
-        // Silently use default on error
-      }
-    };
+    if (preferencesLoaded && !initializedRef.current) {
+      setCurrentPage(initialPage);
+      setScale(initialScale);
+      prevPageRef.current = initialPage;
+      prevScaleRef.current = initialScale;
+      initializedRef.current = true;
+    }
+  }, [preferencesLoaded, initialPage, initialScale]);
 
-    loadPreferences();
-  }, []);
+  // Track page changes and notify parent (only when value actually changes from user action)
+  useEffect(() => {
+    if (
+      initializedRef.current &&
+      onPageChange &&
+      currentPage !== prevPageRef.current
+    ) {
+      prevPageRef.current = currentPage;
+      onPageChange(currentPage);
+    }
+  }, [currentPage, onPageChange]);
+
+  // Track scale changes and notify parent (only when value actually changes from user action)
+  useEffect(() => {
+    if (
+      initializedRef.current &&
+      onScaleChange &&
+      scale !== prevScaleRef.current
+    ) {
+      prevScaleRef.current = scale;
+      onScaleChange(scale);
+    }
+  }, [scale, onScaleChange]);
 
   // Navigation handlers
   const goToPreviousPage = useCallback(() => {
