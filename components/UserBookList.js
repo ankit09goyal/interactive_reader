@@ -82,7 +82,7 @@ export default function UserBookList({ books }) {
       <div className="p-4 border-b border-base-300">
         <h2 className="font-semibold text-lg">
           Your Library{" "}
-          <span className="badge badge-neutral ml-2">{books.length}</span>
+          <span className="badge badge-secondary ml-2">{books.length}</span>
         </h2>
       </div>
       <div className="divide-y divide-base-300">
