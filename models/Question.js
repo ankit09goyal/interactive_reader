@@ -49,6 +49,21 @@ const questionSchema = mongoose.Schema(
       type: Number,
       default: null,
     },
+    // ePub CFI location (Canonical Fragment Identifier) - start position
+    epubCfi: {
+      type: String,
+      default: null,
+    },
+    // ePub CFI range (for highlighting selected text)
+    epubCfiRange: {
+      type: String,
+      default: null,
+    },
+    // ePub chapter title for display
+    epubChapter: {
+      type: String,
+      default: null,
+    },
     // When the question was answered
     answeredAt: {
       type: Date,

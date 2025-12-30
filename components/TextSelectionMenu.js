@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import icons from "@/libs/icons";
 
 /**
- * TextSelectionMenu - Floating menu that appears when user selects text in PDF
+ * TextSelectionMenu - Floating menu that appears when user selects text in PDF/ePub
  * Shows "Ask Question" button for all users
  * Shows "Create Public Q&A" button for admins
+ * Shows "Add Highlight" button for ePub books only
  */
 export default function TextSelectionMenu({
   position,
@@ -14,8 +16,18 @@ export default function TextSelectionMenu({
   onCreatePublicQA,
   onClose,
   isAdmin = false,
+  isEPub = false,
+  onAddHighlight,
+  onAddNotes,
 }) {
   const menuRef = useRef(null);
+  const colorOptions = [
+    { value: "yellow", label: "Yellow", class: "bg-yellow-300" },
+    { value: "green", label: "Green", class: "bg-green-300" },
+    { value: "blue", label: "Blue", class: "bg-blue-300" },
+    { value: "pink", label: "Pink", class: "bg-pink-300" },
+    { value: "orange", label: "Orange", class: "bg-orange-300" },
+  ];
 
   // Close on outside click
   useEffect(() => {
@@ -45,13 +57,36 @@ export default function TextSelectionMenu({
   return (
     <div
       ref={menuRef}
-      className="fixed z-[100] bg-base-100 rounded-lg shadow-xl border border-base-300 p-2 flex flex-col gap-1"
+      className="fixed z-[100] bg-base-100 rounded-lg shadow-xl border border-base-300 p-4 flex flex-col gap-1 space-y-2"
       style={{
         left: position.x,
         top: position.y,
         transform: "translate(-50%, 8px)",
       }}
     >
+      {/* Add Highlight button */}
+      {onAddHighlight && (
+        <div className="flex gap-2">
+          {colorOptions.map((option) => (
+            <button
+              key={option.value}
+              onClick={() => onAddHighlight(option.value)}
+              className={`btn btn-circle w-6 h-6 transition-all ${option.class}`}
+              title={option.label}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* add notes button - for all users */}
+      <button
+        onClick={() => onAddNotes(selectedText)}
+        className="btn btn-sm btn-ghost gap-2 justify-start"
+      >
+        {icons.pencil}
+        Take Notes
+      </button>
+
       {/* Ask Question button - for all users */}
       <button
         onClick={() => onAskQuestion(selectedText)}
@@ -108,4 +143,3 @@ export default function TextSelectionMenu({
     </div>
   );
 }
-

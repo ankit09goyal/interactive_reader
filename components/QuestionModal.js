@@ -6,12 +6,16 @@ import apiClient from "@/libs/api";
 /**
  * QuestionModal - Modal for users to ask questions about selected text
  * For admins: Also has option to create public question directly
+ * Supports both PDF (pageNumber) and ePub (epubCfi, epubChapter) formats
  */
 export default function QuestionModal({
   isOpen,
   onClose,
   selectedText,
   pageNumber,
+  epubCfi = null,
+  epubCfiRange = null,
+  epubChapter = null,
   bookId,
   isAdmin = false,
   onQuestionCreated,
@@ -72,6 +76,9 @@ export default function QuestionModal({
           question: question.trim(),
           selectedText: selectedText || null,
           pageNumber: pageNumber || null,
+          epubCfi: epubCfi || null,
+          epubCfiRange: epubCfiRange || null,
+          epubChapter: epubChapter || null,
           answer: answer.trim() || null,
           isPublic: true,
         });
@@ -82,6 +89,9 @@ export default function QuestionModal({
           question: question.trim(),
           selectedText: selectedText || null,
           pageNumber: pageNumber || null,
+          epubCfi: epubCfi || null,
+          epubCfiRange: epubCfiRange || null,
+          epubChapter: epubChapter || null,
         });
       }
 
@@ -149,6 +159,11 @@ export default function QuestionModal({
                   Page {pageNumber}
                 </p>
               )}
+              {epubChapter && !pageNumber && (
+                <p className="text-xs text-base-content/50 mt-1">
+                  Chapter: {epubChapter}
+                </p>
+              )}
             </div>
           )}
 
@@ -157,6 +172,15 @@ export default function QuestionModal({
             <div className="bg-base-200 rounded-lg p-3">
               <p className="text-xs text-base-content/60">
                 Page {pageNumber}
+              </p>
+            </div>
+          )}
+
+          {/* ePub chapter (shown when no selected text) */}
+          {!selectedText && !pageNumber && epubChapter && (
+            <div className="bg-base-200 rounded-lg p-3">
+              <p className="text-xs text-base-content/60">
+                Chapter: {epubChapter}
               </p>
             </div>
           )}

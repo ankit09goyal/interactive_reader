@@ -21,7 +21,7 @@ export async function POST(req) {
 
     const adminId = session.user.id;
     const body = await req.json();
-    const { bookId, question, selectedText, pageNumber, answer, isPublic } = body;
+    const { bookId, question, selectedText, pageNumber, epubCfi, epubCfiRange, epubChapter, answer, isPublic } = body;
 
     // Validate required fields
     if (!bookId) {
@@ -65,6 +65,9 @@ export async function POST(req) {
       question: question.trim(),
       selectedText: selectedText?.trim() || null,
       pageNumber: pageNumber || null,
+      epubCfi: epubCfi || null,
+      epubCfiRange: epubCfiRange || null,
+      epubChapter: epubChapter || null,
       answer: answer?.trim() || null,
       answeredBy: answer?.trim() ? adminId : null,
       answeredAt: answer?.trim() ? now : null,

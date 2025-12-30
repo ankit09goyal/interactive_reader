@@ -6,6 +6,7 @@ import Book from "@/models/Book";
 import UserBookAccess from "@/models/UserBookAccess";
 import User from "@/models/User";
 import PDFReader from "@/components/PDFReader";
+import EPubReader from "@/components/ePubReader";
 
 export const dynamic = "force-dynamic";
 
@@ -114,51 +115,30 @@ export default async function ReaderPage({ params }) {
 
   const { book, isAdmin } = result;
 
-  // Check if book is PDF (only PDF is supported for now)
-  if (book.mimeType !== "application/pdf") {
-    return (
-      <main className="min-h-screen p-8 pb-24">
-        <section className="max-w-4xl mx-auto">
-          <div className="flex flex-col items-center justify-center py-16 bg-base-200 rounded-xl border border-base-300">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-16 w-16 text-info mb-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-            <h1 className="text-2xl font-bold mb-2">Format Not Supported</h1>
-            <p className="text-base-content/70 mb-6 text-center max-w-md">
-              EPUB format is not yet supported in the reader. PDF support is
-              available.
-            </p>
-            <Link href="/dashboard" className="btn btn-primary">
-              Back to Dashboard
-            </Link>
-          </div>
-        </section>
-      </main>
-    );
-  }
+  // Render appropriate reader based on file type
+  const isPDF = book.mimeType === "application/pdf";
+  const isEPub = book.mimeType === "application/epub+zip";
 
   return (
     <main className="min-h-screen bg-base-200">
       <section className="w-full h-screen flex flex-col">
-        {/* PDF Reader - fills remaining space */}
         <div className="flex-1 min-h-0">
-          <PDFReader
-            filePath={book.filePath}
-            title={book.title}
-            bookId={book._id}
-            isAdmin={isAdmin}
-          />
+          {isPDF && (
+            <PDFReader
+              filePath={book.filePath}
+              title={book.title}
+              bookId={book._id}
+              isAdmin={isAdmin}
+            />
+          )}
+          {isEPub && (
+            <EPubReader
+              filePath={book.filePath}
+              title={book.title}
+              bookId={book._id}
+              isAdmin={isAdmin}
+            />
+          )}
         </div>
       </section>
     </main>

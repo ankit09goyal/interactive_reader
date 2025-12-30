@@ -17,7 +17,15 @@ export async function POST(req) {
     }
 
     const body = await req.json();
-    const { bookId, question, selectedText, pageNumber } = body;
+    const {
+      bookId,
+      question,
+      selectedText,
+      pageNumber,
+      epubCfi,
+      epubCfiRange,
+      epubChapter,
+    } = body;
 
     // Validate required fields
     if (!bookId) {
@@ -56,6 +64,9 @@ export async function POST(req) {
       question: question.trim(),
       selectedText: selectedText?.trim() || null,
       pageNumber: pageNumber || null,
+      epubCfi: epubCfi || null,
+      epubCfiRange: epubCfiRange || null,
+      epubChapter: epubChapter || null,
       isPublic: false,
       isAdminCreated: false,
       isEditedVersion: false,
@@ -149,11 +160,18 @@ export async function GET(req) {
       originalQuestionId: q.originalQuestionId?.toString() || null,
       answeredBy: q.answeredBy?.toString() || null,
       createdByAdmin: q.createdByAdmin?.toString() || null,
+      epubCfi: q.epubCfi || null,
+      epubCfiRange: q.epubCfiRange || null,
+      epubChapter: q.epubChapter || null,
+      pageNumber: q.pageNumber || null,
+      selectedText: q.selectedText || null,
     });
 
     return NextResponse.json({
       myQuestions: myQuestions.map(formatQuestion),
-      publicQuestions: [...filteredPublicQuestions, ...userPublicQuestions].map(formatQuestion),
+      publicQuestions: [...filteredPublicQuestions, ...userPublicQuestions].map(
+        formatQuestion
+      ),
     });
   } catch (error) {
     console.error("Error fetching questions:", error);
@@ -163,4 +181,3 @@ export async function GET(req) {
     );
   }
 }
-

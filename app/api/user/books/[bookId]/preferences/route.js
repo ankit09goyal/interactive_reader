@@ -42,9 +42,13 @@ export async function GET(req, { params }) {
 
     // Return preferences with defaults if not set
     const preferences = {
+      // PDF preferences
       lastPage: access.readingPreferences?.lastPage || 1,
       viewMode: access.readingPreferences?.viewMode || "one-page",
       scale: access.readingPreferences?.scale || 1.0,
+      // ePub preferences
+      fontSize: access.readingPreferences?.fontSize || 16,
+      lastLocation: access.readingPreferences?.lastLocation || null,
     };
 
     return NextResponse.json({ preferences });
@@ -75,7 +79,7 @@ async function updatePreferences(req, params) {
   const userId = session.user.id;
   const body = await req.json();
 
-  const { lastPage, viewMode, scale } = body;
+  const { lastPage, viewMode, scale, fontSize, lastLocation } = body;
 
   // Validate inputs
   if (
@@ -108,10 +112,29 @@ async function updatePreferences(req, params) {
     );
   }
 
+  // Validate ePub-specific preferences
+  if (
+    fontSize !== undefined &&
+    (typeof fontSize !== "number" || fontSize < 12 || fontSize > 24)
+  ) {
+    return NextResponse.json(
+      { error: "Invalid fontSize. Must be a number between 12 and 24" },
+      { status: 400 }
+    );
+  }
+
+  if (lastLocation !== undefined && lastLocation !== null && typeof lastLocation !== "string") {
+    return NextResponse.json(
+      { error: "Invalid lastLocation. Must be a string (CFI) or null" },
+      { status: 400 }
+    );
+  }
+
   await connectMongo();
 
   // Build update object for preferences
   const updateObj = {};
+  // PDF preferences
   if (lastPage !== undefined) {
     updateObj["readingPreferences.lastPage"] = Math.floor(lastPage);
   }
@@ -120,6 +143,13 @@ async function updatePreferences(req, params) {
   }
   if (scale !== undefined) {
     updateObj["readingPreferences.scale"] = scale;
+  }
+  // ePub preferences
+  if (fontSize !== undefined) {
+    updateObj["readingPreferences.fontSize"] = fontSize;
+  }
+  if (lastLocation !== undefined) {
+    updateObj["readingPreferences.lastLocation"] = lastLocation;
   }
 
   // Only update if there's something to update
@@ -151,9 +181,13 @@ async function updatePreferences(req, params) {
   }
   // Return updated preferences
   const preferences = {
+    // PDF preferences
     lastPage: access.readingPreferences?.lastPage || 1,
     viewMode: access.readingPreferences?.viewMode || "one-page",
     scale: access.readingPreferences?.scale || 1.0,
+    // ePub preferences
+    fontSize: access.readingPreferences?.fontSize || 16,
+    lastLocation: access.readingPreferences?.lastLocation || null,
   };
 
   return NextResponse.json({ preferences });

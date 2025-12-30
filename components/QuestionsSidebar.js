@@ -5,74 +5,8 @@ import { useSession } from "next-auth/react";
 import { toast } from "react-hot-toast";
 import apiClient from "@/libs/api";
 import QuestionDeleteModal from "./QuestionDeleteModal";
-
-// Icons as constants to avoid repetition
-const ICONS = {
-  plus: (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      className="h-4 w-4"
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M12 4v16m8-8H4"
-      />
-    </svg>
-  ),
-  close: (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      className="h-5 w-5"
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M6 18L18 6M6 6l12 12"
-      />
-    </svg>
-  ),
-  refresh: (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      className="h-4 w-4"
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-      />
-    </svg>
-  ),
-  trash: (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      className="h-4 w-4"
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-      />
-    </svg>
-  ),
-};
+import DeleteModal from "./DeleteModal";
+import icons from "@/libs/icons";
 
 /**
  * FilterTab - Reusable tab button component
@@ -169,13 +103,9 @@ function QuestionCard({
   };
 
   return (
-    <div
-      className={`rounded-lg p-3 border border-base-300 ${
-        question.answer ? "" : "bg-base-200"
-      }`}
-    >
+    <div className={`rounded-lg p-3 border border-base-300`}>
       {/* Question header with delete button */}
-      <div className="flex items-start justify-between gap-2 mb-2">
+      <div className="flex items-start justify-between gap-2 mb-2 ">
         <p className="text-sm font-medium line-clamp-2 flex-1">
           Q: {question.question}
         </p>
@@ -185,14 +115,13 @@ function QuestionCard({
             className="btn btn-ghost btn-xs text-error hover:bg-error/20 shrink-0"
             title="Delete question"
           >
-            {ICONS.trash}
+            {icons.delete}
           </button>
         )}
       </div>
-
       {/* Answer (if exists) */}
-      {question.answer && (
-        <div className="mt-2 mb-2 pb-2 pt-2 border-b border-base-300">
+      {question.answer ? (
+        <div className="mt-2 mb-2 pb-4 pt-2 border-b border-base-300">
           <p className="text-xs text-base-content/60 mb-1">Answer:</p>
           <p
             className={`text-sm text-base-content/80 ${
@@ -210,35 +139,216 @@ function QuestionCard({
             </button>
           )}
         </div>
-      )}
-
-      {/* Footer */}
-      {!isPublic && (
-        <div className="flex items-start justify-between gap-2 mb-2">
-          <div className="flex flex-col flex-wrap gap-1">
-            {question.pageNumber && (
-              <p className="text-xs text-base-content/40 mt-2">
-                Page {question.pageNumber}
-              </p>
-            )}
-
-            {/* Selected text preview */}
-            {question.selectedText && (
-              <p
-                className="text-xs text-base-content/40 italic mb-2 line-clamp-2 cursor-pointer"
-                onClick={onClick}
-              >
-                {question.selectedText}
-              </p>
-            )}
-          </div>
+      ) : (
+        <div className="mt-2 mb-2 pb-4 pt-2 border-b border-base-300">
+          <p className="text-xs text-base-content/60 mb-1">Not answered yet.</p>
         </div>
       )}
+      {/* Footer */}
+      <div className="flex flex-col items-start justify-between pb-2 pt-2 mb-2 mt-2 border-l-3 border-primary pl-2">
+        {/* Selected text preview */}
+        {question.selectedText && !isPublic && (
+          <p className="text-xs text-base-content/40 italic mb-2 line-clamp-2">
+            {question.selectedText}
+          </p>
+        )}
+      </div>
 
-      {/* Timestamp */}
-      <p className="text-xs text-base-content/40 mt-2">
-        {new Date(question.createdAt).toLocaleDateString()}
+      {question.selectedText && !isPublic && (
+        <div className="flex justify-between mt-2 text-xs pt-4 border-t border-base-300">
+          <span className="text-xs text-base-content/50">
+            {new Date(question.createdAt).toLocaleDateString()}
+          </span>
+          <button className="btn btn-ghost btn-xs" onClick={onClick}>
+            Go to highlight
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function HighlightCard({
+  highlight,
+  onHighlightClick,
+  onGoToLocation,
+  handleDeleteHighlight,
+}) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isHighlightedTextExpanded, setIsHighlightedTextExpanded] =
+    useState(false);
+
+  // Color mapping for visual display
+  const colorClasses = {
+    yellow: "border-yellow-400",
+    green: "border-green-400",
+    blue: "border-blue-400",
+    pink: "border-pink-400",
+    orange: "border-orange-400",
+  };
+
+  const toggleExpand = (e) => {
+    e.stopPropagation();
+    setIsExpanded(!isExpanded);
+  };
+
+  const toggleHighlightedTextExpand = (e) => {
+    e.stopPropagation();
+    setIsHighlightedTextExpanded(!isHighlightedTextExpanded);
+  };
+
+  {
+    /* Notes (if any) */
+  }
+  return (
+    <>
+      {/* header */}
+      <div className="flex justify-between border-b border-base-300 pb-2">
+        <p className="text-xs font-medium mb-1 text-base-content/50">
+          HIGHLIGHT
+        </p>
+        {/* header actions */}
+        <div className="flex justify-end gap-2">
+          {/* Edit note button */}
+          <button
+            className="btn btn-ghost btn-xs btn-primary"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onHighlightClick) onHighlightClick(highlight._id);
+            }}
+          >
+            {highlight.notes ? (
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                className="h-3 w-3 mr-1"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125"
+                />
+              </svg>
+            ) : (
+              <span>Add Note</span>
+            )}
+          </button>
+          {/* Delete note button */}
+          <button
+            className="btn btn-ghost btn-xs btn-error"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleDeleteHighlight(highlight);
+            }}
+          >
+            {icons.delete}
+          </button>
+        </div>
+      </div>
+      {/* Highlighted text */}
+      <div
+        className={`mt-2 mb-2 pt-2 pb-2 border-l-3 pl-2 ${
+          colorClasses[highlight.color] || colorClasses.yellow
+        }`}
+      >
+        <p
+          className={`text-xs italic text-base-content/60 ${
+            isHighlightedTextExpanded ? "" : "line-clamp-3"
+          }`}
+        >
+          {highlight.selectedText}
+        </p>
+        {highlight.selectedText.length > 150 && (
+          <button
+            className="text-xs text-primary mt-1 cursor-pointer"
+            onClick={toggleHighlightedTextExpand}
+          >
+            {isHighlightedTextExpanded ? "Show less" : "Show more"}
+          </button>
+        )}
+      </div>
+      {/* notes */}
+      {highlight && highlight.notes && (
+        <>
+          <div className="pt-4 pb-4 border-b border-t border-base-300">
+            <p className="text-xs font-medium mb-1 text-base-content/50">
+              NOTES
+            </p>
+            <p
+              className={`text-sm text-base-content/80 ${
+                isExpanded ? "" : "line-clamp-3"
+              }`}
+            >
+              {highlight.notes}
+            </p>
+            {highlight.notes.length > 150 && (
+              <button
+                className="text-xs text-primary mt-1 cursor-pointer"
+                onClick={toggleExpand}
+              >
+                {isExpanded ? "Show less" : "Show more"}
+              </button>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* footer */}
+      <div className="flex items-center justify-between mt-2 text-xs">
+        <span className="text-base-content/50">
+          {new Date(highlight.createdAt).toLocaleDateString()}
+        </span>
+        <button
+          className="btn btn-ghost btn-xs"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (onGoToLocation)
+              onGoToLocation(highlight.cfiRange || highlight.cfi);
+          }}
+        >
+          Go to Highlight
+        </button>
+      </div>
+    </>
+  );
+}
+
+/**
+ * HighlightsList - List of highlights for ePub books
+ */
+function HighlightsList({
+  highlights = [],
+  onHighlightClick,
+  onGoToLocation,
+  handleDeleteHighlight,
+}) {
+  if (highlights.length === 0) {
+    return (
+      <p className="text-sm text-base-content/50 py-4">
+        No highlights yet. Select text and click &quot;Highlight&quot; or
+        &quot;Take Notes&quot; to get started.
       </p>
+    );
+  }
+
+  return (
+    <div className="space-y-5">
+      {highlights.map((highlight) => (
+        <div
+          key={highlight._id}
+          className={`rounded-lg p-3 border border-base-300`}
+        >
+          <HighlightCard
+            highlight={highlight}
+            onHighlightClick={onHighlightClick}
+            onGoToLocation={onGoToLocation}
+            handleDeleteHighlight={handleDeleteHighlight}
+          />
+        </div>
+      ))}
     </div>
   );
 }
@@ -246,6 +356,7 @@ function QuestionCard({
 /**
  * QuestionsSidebar - Sidebar panel showing questions for the current book
  * Shows "My Questions" and "Public Q&A" sections
+ * For ePub: Also shows "Highlights" section
  */
 export default function QuestionsSidebar({
   isOpen,
@@ -257,6 +368,10 @@ export default function QuestionsSidebar({
   highlightedQuestionId = null,
   highlightedTextClicked = 0,
   onQuestionDeleted,
+  isEPub = false,
+  highlights = [],
+  onHighlightClick,
+  onHighlightDeleted,
 }) {
   const [questions, setQuestions] = useState({
     myQuestions: [],
@@ -265,9 +380,11 @@ export default function QuestionsSidebar({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState("all");
-  const [showMyQuestions, setShowMyQuestions] = useState(true);
+  const [activeTab, setActiveTab] = useState("my"); // "my", "public", "highlights"
   const [deleteModalQuestion, setDeleteModalQuestion] = useState(null);
+  const [deleteModalHighlight, setDeleteModalHighlight] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isDeletingHighlight, setIsDeletingHighlight] = useState(false);
   const [activeHighlightId, setActiveHighlightId] = useState(null);
   const questionRefs = useRef({});
   const { data: session } = useSession();
@@ -346,14 +463,41 @@ export default function QuestionsSidebar({
     }
   }, [highlightedQuestionId, isOpen, isLoading, highlightedTextClicked]);
 
-  // Handle click on question to go to page
+  // Handle delete highlight - opens modal
+  const handleDeleteHighlight = useCallback((highlight) => {
+    setDeleteModalHighlight(highlight);
+  }, []);
+
+  // Confirm delete highlight
+  const handleDeleteHighlightConfirm = useCallback(async () => {
+    if (!deleteModalHighlight) return;
+    setIsDeletingHighlight(true);
+    try {
+      if (onHighlightDeleted) {
+        await onHighlightDeleted(deleteModalHighlight._id);
+      }
+      setDeleteModalHighlight(null);
+    } catch (err) {
+      console.error("Error deleting highlight:", err);
+      toast.error(err.message || "Failed to delete highlight");
+    } finally {
+      setIsDeletingHighlight(false);
+    }
+  }, [deleteModalHighlight, onHighlightDeleted]);
+
+  // Handle click on question to go to page/location
   const handleQuestionClick = useCallback(
     (question) => {
-      if (question.pageNumber && onGoToPage) {
-        onGoToPage(question.pageNumber);
+      if (onGoToPage) {
+        // For ePub, use CFI location if available
+        if (isEPub && question.epubCfi) {
+          onGoToPage(question.epubCfi);
+        } else if (question.pageNumber) {
+          onGoToPage(question.pageNumber);
+        }
       }
     },
-    [onGoToPage]
+    [onGoToPage, isEPub]
   );
 
   // Handle delete question - opens modal
@@ -406,34 +550,42 @@ export default function QuestionsSidebar({
               className="btn btn-primary btn-sm gap-1"
               title="Add Question"
             >
-              {ICONS.plus}
+              {icons.plus}
               <span className="hidden sm:inline text-xs">Add</span>
             </button>
           )}
           <button onClick={onClose} className="btn btn-ghost btn-sm btn-square">
-            {ICONS.close}
+            {icons.close}
           </button>
         </div>
       </div>
 
-      {/* Question type tabs (My Questions / Public Questions) */}
+      {/* Question type tabs (My Questions / Public Questions / Highlights for ePub) */}
       <div className="flex tabs border-b border-base-100 py-2">
         <FilterTab
-          isActive={showMyQuestions}
-          onClick={() => setShowMyQuestions(true)}
+          isActive={activeTab === "my"}
+          onClick={() => setActiveTab("my")}
         >
           My Questions
         </FilterTab>
         <FilterTab
-          isActive={!showMyQuestions}
-          onClick={() => setShowMyQuestions(false)}
+          isActive={activeTab === "public"}
+          onClick={() => setActiveTab("public")}
         >
-          Public Questions
+          Public Q&A
         </FilterTab>
+        {isEPub && (
+          <FilterTab
+            isActive={activeTab === "highlights"}
+            onClick={() => setActiveTab("highlights")}
+          >
+            Highlights
+          </FilterTab>
+        )}
       </div>
 
       {/* Answer status filter tabs */}
-      {showMyQuestions && (
+      {activeTab === "my" && (
         <div className="flex tabs tabs-box">
           {filterOptions.map(({ value, label }) => (
             <FilterTab
@@ -465,14 +617,25 @@ export default function QuestionsSidebar({
               Try Again
             </button>
           </div>
+        ) : activeTab === "highlights" && isEPub ? (
+          <div>
+            <HighlightsList
+              highlights={highlights}
+              onHighlightClick={onHighlightClick}
+              onGoToLocation={onGoToPage}
+              handleDeleteHighlight={handleDeleteHighlight}
+            />
+          </div>
         ) : (
           <div>
             <QuestionsList
               questions={
-                showMyQuestions ? filteredMyQuestions : filteredPublicQuestions
+                activeTab === "my"
+                  ? filteredMyQuestions
+                  : filteredPublicQuestions
               }
               emptyMessage={
-                showMyQuestions
+                activeTab === "my"
                   ? 'No questions yet. Select text and click "Ask Question" to get started.'
                   : "No public Q&A available for this book yet."
               }
@@ -481,7 +644,7 @@ export default function QuestionsSidebar({
               onQuestionClick={handleQuestionClick}
               currentUserId={currentUserId}
               onDelete={handleDeleteQuestion}
-              isPublic={!showMyQuestions}
+              isPublic={activeTab !== "my"}
             />
           </div>
         )}
@@ -494,7 +657,7 @@ export default function QuestionsSidebar({
           className="btn btn-ghost btn-sm w-full gap-2"
           disabled={isLoading}
         >
-          {ICONS.refresh}
+          {icons.refresh}
           Refresh
         </button>
       </div>
@@ -506,6 +669,34 @@ export default function QuestionsSidebar({
           onClose={() => setDeleteModalQuestion(null)}
           onConfirm={handleDeleteConfirm}
           isDeleting={isDeleting}
+        />
+      )}
+
+      {/* Delete Highlight Modal */}
+      {deleteModalHighlight && (
+        <DeleteModal
+          title="Delete Highlight/Note"
+          itemPreview={
+            <div className="space-y-2">
+              {deleteModalHighlight.notes && (
+                <p className="text-sm">
+                  <strong>Note:</strong> {deleteModalHighlight.notes}
+                </p>
+              )}
+              {deleteModalHighlight.selectedText && (
+                <p className="text-xs italic text-base-content/60 mt-4">
+                  <strong>Highlighted Text: </strong>
+                  <br />
+                  {deleteModalHighlight.selectedText}
+                </p>
+              )}
+            </div>
+          }
+          warningMessage="This will permanently delete this highlight and its note (if any)."
+          confirmButtonText="Delete"
+          onClose={() => setDeleteModalHighlight(null)}
+          onConfirm={handleDeleteHighlightConfirm}
+          isDeleting={isDeletingHighlight}
         />
       )}
     </div>

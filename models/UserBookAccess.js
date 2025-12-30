@@ -28,24 +28,36 @@ const userBookAccessSchema = mongoose.Schema(
     },
     // Reading preferences for this specific book
     readingPreferences: {
-      // Last page the user was reading
+      // Last page the user was reading (for PDF)
       lastPage: {
         type: Number,
         default: 1,
         min: 1,
       },
-      // View mode preference for this book
+      // View mode preference for this book (for PDF)
       viewMode: {
         type: String,
         enum: ["one-page", "continuous"],
         default: "one-page",
       },
-      // Zoom scale for this book
+      // Zoom scale for this book (for PDF)
       scale: {
         type: Number,
         default: 1.0,
         min: 0.5,
         max: 3.0,
+      },
+      // Font size for ePub reading
+      fontSize: {
+        type: Number,
+        default: 16,
+        min: 12,
+        max: 24,
+      },
+      // Last reading location for ePub (CFI string)
+      lastLocation: {
+        type: String,
+        default: null,
       },
     },
   },

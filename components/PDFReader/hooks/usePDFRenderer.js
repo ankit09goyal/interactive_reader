@@ -117,6 +117,10 @@ export function usePDFRenderer({
 
             // Make highlight clickable
             if (onHighlightClick) {
+              // Ensure pointer events and cursor
+              highlightSpan.style.pointerEvents = "auto";
+              highlightSpan.style.cursor = "pointer";
+
               highlightSpan.addEventListener("click", (e) => {
                 e.stopPropagation();
                 e.preventDefault();
