@@ -7,7 +7,12 @@ import apiClient from "@/libs/api";
  * useEPubHighlights - Custom hook for managing highlights in ePub
  * Fetches, creates, updates, and deletes highlights
  */
-export function useEPubHighlights({ bookId, rendition, refreshTrigger = 0 }) {
+export function useEPubHighlights({
+  bookId,
+  rendition,
+  refreshTrigger = 0,
+  onHighlightClick,
+}) {
   const [highlights, setHighlights] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const renditionRef = useRef(rendition);
@@ -85,7 +90,7 @@ export function useEPubHighlights({ bookId, rendition, refreshTrigger = 0 }) {
             highlight.cfiRange,
             {},
             () => {
-              // Click handler for highlight - can be handled elsewhere
+              if (onHighlightClick) onHighlightClick(highlight._id, highlight);
             },
             "epub-highlight",
             {

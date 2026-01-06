@@ -41,6 +41,8 @@ export default function EPubReader({
   const [isNotesLoading, setIsNotesLoading] = useState(false);
   const [highlightedQuestionId, setHighlightedQuestionId] = useState(null);
   const [highlightedTextClicked, setHighlightedTextClicked] = useState(0);
+  const [highlightedNoteId, setHighlightedNoteId] = useState(null);
+  const [highlightedNoteClicked, setHighlightedNoteClicked] = useState(0);
 
   // Preferences state
   const [preferencesLoaded, setPreferencesLoaded] = useState(false);
@@ -133,6 +135,11 @@ export default function EPubReader({
     bookId,
     rendition,
     refreshTrigger: sidebarRefreshTrigger,
+    onHighlightClick: (highlightId) => {
+      setHighlightedNoteId(highlightId);
+      setShowSidebar(true);
+      setHighlightedNoteClicked((prev) => prev + 1);
+    },
   });
 
   // Question highlights (clickable)
@@ -345,6 +352,8 @@ export default function EPubReader({
     setShowSidebar(false);
     setHighlightedQuestionId(null);
     setHighlightedTextClicked(0);
+    setHighlightedNoteId(null);
+    setHighlightedNoteClicked(0);
   }, [setShowSidebar, setHighlightedQuestionId, setHighlightedTextClicked]);
 
   return (
@@ -455,6 +464,8 @@ export default function EPubReader({
           onHighlightClick={handleHighlightClick}
           highlightedQuestionId={highlightedQuestionId}
           highlightedTextClicked={highlightedTextClicked}
+          highlightedNoteId={highlightedNoteId}
+          highlightedNoteClicked={highlightedNoteClicked}
           onHighlightDeleted={handleDeleteHighlight}
         />
       )}

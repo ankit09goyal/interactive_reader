@@ -173,10 +173,19 @@ function HighlightCard({
   onHighlightClick,
   onGoToLocation,
   handleDeleteHighlight,
+  activeNoteId,
+  highlightRefs,
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isHighlightedTextExpanded, setIsHighlightedTextExpanded] =
     useState(false);
+  const cardRef = useRef(null);
+
+  useEffect(() => {
+    if (cardRef.current) {
+      highlightRefs.current[highlight._id] = cardRef.current;
+    }
+  }, [highlight._id, highlightRefs]);
 
   // Color mapping for visual display
   const colorClasses = {
@@ -201,118 +210,127 @@ function HighlightCard({
     /* Notes (if any) */
   }
   return (
-    <>
-      {/* header */}
-      <div className="flex justify-between border-b border-base-300 pb-2">
-        <p className="text-xs font-medium mb-1 text-base-content/50">
-          HIGHLIGHT
-        </p>
-        {/* header actions */}
-        <div className="flex justify-end gap-2">
-          {/* Edit note button */}
-          <button
-            className="btn btn-ghost btn-xs btn-primary"
-            onClick={(e) => {
-              e.stopPropagation();
-              if (onHighlightClick) onHighlightClick(highlight._id);
-            }}
+    <div
+      ref={cardRef}
+      className={`rounded-lg transition-all ${
+        activeNoteId === highlight._id
+          ? "ring-2 ring-primary ring-offset-2 ring-offset-base-100 bg-primary/10 animate-pulse"
+          : ""
+      }`}
+    >
+      <div className="p-3 border border-base-300 rounded-lg">
+        {/* header */}
+        <div className="flex justify-between border-b border-base-300 pb-2">
+          <p className="text-xs font-medium mb-1 text-base-content/50">
+            HIGHLIGHT
+          </p>
+          {/* header actions */}
+          <div className="flex justify-end gap-2">
+            {/* Edit note button */}
+            <button
+              className="btn btn-ghost btn-xs btn-primary"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onHighlightClick) onHighlightClick(highlight._id);
+              }}
+            >
+              {highlight.notes ? (
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  className="h-3 w-3 mr-1"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125"
+                  />
+                </svg>
+              ) : (
+                <span>Add Note</span>
+              )}
+            </button>
+            {/* Delete note button */}
+            <button
+              className="btn btn-ghost btn-xs btn-error"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDeleteHighlight(highlight);
+              }}
+            >
+              {icons.delete}
+            </button>
+          </div>
+        </div>
+        {/* Highlighted text */}
+        <div
+          className={`mt-2 mb-2 pt-2 pb-2 border-l-3 pl-2 ${
+            colorClasses[highlight.color] || colorClasses.yellow
+          }`}
+        >
+          <p
+            className={`text-xs italic text-base-content/60 ${
+              isHighlightedTextExpanded ? "" : "line-clamp-3"
+            }`}
           >
-            {highlight.notes ? (
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                className="h-3 w-3 mr-1"
+            {highlight.selectedText}
+          </p>
+          {highlight.selectedText.length > 150 && (
+            <button
+              className="text-xs text-primary mt-1 cursor-pointer"
+              onClick={toggleHighlightedTextExpand}
+            >
+              {isHighlightedTextExpanded ? "Show less" : "Show more"}
+            </button>
+          )}
+        </div>
+        {/* notes */}
+        {highlight && highlight.notes && (
+          <>
+            <div className="pt-4 pb-4 border-b border-t border-base-300">
+              <p className="text-xs font-medium mb-1 text-base-content/50">
+                NOTES
+              </p>
+              <p
+                className={`text-sm text-base-content/80 ${
+                  isExpanded ? "" : "line-clamp-3"
+                }`}
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125"
-                />
-              </svg>
-            ) : (
-              <span>Add Note</span>
-            )}
-          </button>
-          {/* Delete note button */}
+                {highlight.notes}
+              </p>
+              {highlight.notes.length > 150 && (
+                <button
+                  className="text-xs text-primary mt-1 cursor-pointer"
+                  onClick={toggleExpand}
+                >
+                  {isExpanded ? "Show less" : "Show more"}
+                </button>
+              )}
+            </div>
+          </>
+        )}
+
+        {/* footer */}
+        <div className="flex items-center justify-between mt-2 text-xs">
+          <span className="text-base-content/50">
+            {new Date(highlight.createdAt).toLocaleDateString()}
+          </span>
           <button
-            className="btn btn-ghost btn-xs btn-error"
+            className="btn btn-ghost btn-xs"
             onClick={(e) => {
               e.stopPropagation();
-              handleDeleteHighlight(highlight);
+              if (onGoToLocation)
+                onGoToLocation(highlight.cfiRange || highlight.cfi);
             }}
           >
-            {icons.delete}
+            Go to Highlight
           </button>
         </div>
       </div>
-      {/* Highlighted text */}
-      <div
-        className={`mt-2 mb-2 pt-2 pb-2 border-l-3 pl-2 ${
-          colorClasses[highlight.color] || colorClasses.yellow
-        }`}
-      >
-        <p
-          className={`text-xs italic text-base-content/60 ${
-            isHighlightedTextExpanded ? "" : "line-clamp-3"
-          }`}
-        >
-          {highlight.selectedText}
-        </p>
-        {highlight.selectedText.length > 150 && (
-          <button
-            className="text-xs text-primary mt-1 cursor-pointer"
-            onClick={toggleHighlightedTextExpand}
-          >
-            {isHighlightedTextExpanded ? "Show less" : "Show more"}
-          </button>
-        )}
-      </div>
-      {/* notes */}
-      {highlight && highlight.notes && (
-        <>
-          <div className="pt-4 pb-4 border-b border-t border-base-300">
-            <p className="text-xs font-medium mb-1 text-base-content/50">
-              NOTES
-            </p>
-            <p
-              className={`text-sm text-base-content/80 ${
-                isExpanded ? "" : "line-clamp-3"
-              }`}
-            >
-              {highlight.notes}
-            </p>
-            {highlight.notes.length > 150 && (
-              <button
-                className="text-xs text-primary mt-1 cursor-pointer"
-                onClick={toggleExpand}
-              >
-                {isExpanded ? "Show less" : "Show more"}
-              </button>
-            )}
-          </div>
-        </>
-      )}
-
-      {/* footer */}
-      <div className="flex items-center justify-between mt-2 text-xs">
-        <span className="text-base-content/50">
-          {new Date(highlight.createdAt).toLocaleDateString()}
-        </span>
-        <button
-          className="btn btn-ghost btn-xs"
-          onClick={(e) => {
-            e.stopPropagation();
-            if (onGoToLocation)
-              onGoToLocation(highlight.cfiRange || highlight.cfi);
-          }}
-        >
-          Go to Highlight
-        </button>
-      </div>
-    </>
+    </div>
   );
 }
 
@@ -324,6 +342,8 @@ function HighlightsList({
   onHighlightClick,
   onGoToLocation,
   handleDeleteHighlight,
+  activeNoteId,
+  highlightRefs,
 }) {
   if (highlights.length === 0) {
     return (
@@ -346,6 +366,8 @@ function HighlightsList({
             onHighlightClick={onHighlightClick}
             onGoToLocation={onGoToLocation}
             handleDeleteHighlight={handleDeleteHighlight}
+            activeNoteId={activeNoteId}
+            highlightRefs={highlightRefs}
           />
         </div>
       ))}
@@ -367,6 +389,8 @@ export default function QuestionsSidebar({
   onAddQuestion,
   highlightedQuestionId = null,
   highlightedTextClicked = 0,
+  highlightedNoteId = null,
+  highlightedNoteClicked = 0,
   onQuestionDeleted,
   isEPub = false,
   highlights = [],
@@ -386,7 +410,9 @@ export default function QuestionsSidebar({
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDeletingHighlight, setIsDeletingHighlight] = useState(false);
   const [activeHighlightId, setActiveHighlightId] = useState(null);
+  const [activeNoteId, setActiveNoteId] = useState(null);
   const questionRefs = useRef({});
+  const highlightRefs = useRef({});
   const { data: session } = useSession();
   const currentUserId = session?.user?.id;
 
@@ -462,6 +488,35 @@ export default function QuestionsSidebar({
       return () => clearTimeout(timeoutId);
     }
   }, [highlightedQuestionId, isOpen, isLoading, highlightedTextClicked]);
+
+  // Scroll to and highlight note when highlightedNoteClicked changes
+  useEffect(() => {
+    if (
+      highlightedNoteId &&
+      isOpen &&
+      !isLoading &&
+      highlightedNoteClicked > 0
+    ) {
+      // Switch to highlights tab so the note is visible
+      setActiveTab("highlights");
+
+      const timeoutId = setTimeout(() => {
+        setActiveNoteId(highlightedNoteId);
+        const noteRef = highlightRefs.current[highlightedNoteId];
+        if (noteRef) {
+          noteRef.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+          });
+        }
+        setTimeout(() => {
+          setActiveNoteId(null);
+        }, 2000);
+      }, 300);
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [highlightedNoteId, highlightedNoteClicked, isOpen, isLoading]);
 
   // Handle delete highlight - opens modal
   const handleDeleteHighlight = useCallback((highlight) => {
@@ -624,6 +679,8 @@ export default function QuestionsSidebar({
               onHighlightClick={onHighlightClick}
               onGoToLocation={onGoToPage}
               handleDeleteHighlight={handleDeleteHighlight}
+              activeNoteId={activeNoteId}
+              highlightRefs={highlightRefs}
             />
           </div>
         ) : (
