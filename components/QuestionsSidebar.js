@@ -5,7 +5,6 @@ import { useSession } from "next-auth/react";
 import { toast } from "react-hot-toast";
 import apiClient from "@/libs/api";
 import QuestionDeleteModal from "./QuestionDeleteModal";
-import DeleteModal from "./DeleteModal";
 import icons from "@/libs/icons";
 
 /**
@@ -36,6 +35,7 @@ function QuestionsList({
   currentUserId,
   onDelete,
   isPublic = false,
+  isEPub = false,
 }) {
   if (questions.length === 0) {
     return <p className="text-sm text-base-content/50 py-4">{emptyMessage}</p>;
@@ -63,6 +63,7 @@ function QuestionsList({
               isPublic={isPublic}
               currentUserId={currentUserId}
               onDelete={onDelete}
+              isEPub={isEPub}
             />
           </div>
         );
@@ -80,6 +81,7 @@ function QuestionCard({
   isPublic = false,
   currentUserId,
   onDelete,
+  isEPub = false,
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -101,6 +103,9 @@ function QuestionCard({
     e.stopPropagation();
     setIsExpanded(!isExpanded);
   };
+
+  // Check if question has a location to navigate to
+  const hasLocation = isEPub ? question.epubCfi : question.pageNumber;
 
   return (
     <div className={`rounded-lg p-3 border border-base-300`}>
@@ -154,7 +159,7 @@ function QuestionCard({
         )}
       </div>
 
-      {question.selectedText && !isPublic && (
+      {question.selectedText && !isPublic && hasLocation && (
         <div className="flex justify-between mt-2 text-xs pt-4 border-t border-base-300">
           <span className="text-xs text-base-content/50">
             {new Date(question.createdAt).toLocaleDateString()}
@@ -168,217 +173,9 @@ function QuestionCard({
   );
 }
 
-function HighlightCard({
-  highlight,
-  onHighlightClick,
-  onGoToLocation,
-  handleDeleteHighlight,
-  activeNoteId,
-  highlightRefs,
-}) {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [isHighlightedTextExpanded, setIsHighlightedTextExpanded] =
-    useState(false);
-  const cardRef = useRef(null);
-
-  useEffect(() => {
-    if (cardRef.current) {
-      highlightRefs.current[highlight._id] = cardRef.current;
-    }
-  }, [highlight._id, highlightRefs]);
-
-  // Color mapping for visual display
-  const colorClasses = {
-    yellow: "border-yellow-400",
-    green: "border-green-400",
-    blue: "border-blue-400",
-    pink: "border-pink-400",
-    orange: "border-orange-400",
-  };
-
-  const toggleExpand = (e) => {
-    e.stopPropagation();
-    setIsExpanded(!isExpanded);
-  };
-
-  const toggleHighlightedTextExpand = (e) => {
-    e.stopPropagation();
-    setIsHighlightedTextExpanded(!isHighlightedTextExpanded);
-  };
-
-  {
-    /* Notes (if any) */
-  }
-  return (
-    <div
-      ref={cardRef}
-      className={`rounded-lg transition-all ${
-        activeNoteId === highlight._id
-          ? "ring-2 ring-primary ring-offset-2 ring-offset-base-100 bg-primary/10 animate-pulse"
-          : ""
-      }`}
-    >
-      <div className="p-3 border border-base-300 rounded-lg">
-        {/* header */}
-        <div className="flex justify-between border-b border-base-300 pb-2">
-          <p className="text-xs font-medium mb-1 text-base-content/50">
-            HIGHLIGHT
-          </p>
-          {/* header actions */}
-          <div className="flex justify-end gap-2">
-            {/* Edit note button */}
-            <button
-              className="btn btn-ghost btn-xs btn-primary"
-              onClick={(e) => {
-                e.stopPropagation();
-                if (onHighlightClick) onHighlightClick(highlight._id);
-              }}
-            >
-              {highlight.notes ? (
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  className="h-3 w-3 mr-1"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125"
-                  />
-                </svg>
-              ) : (
-                <span>Add Note</span>
-              )}
-            </button>
-            {/* Delete note button */}
-            <button
-              className="btn btn-ghost btn-xs btn-error"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleDeleteHighlight(highlight);
-              }}
-            >
-              {icons.delete}
-            </button>
-          </div>
-        </div>
-        {/* Highlighted text */}
-        <div
-          className={`mt-2 mb-2 pt-2 pb-2 border-l-3 pl-2 ${
-            colorClasses[highlight.color] || colorClasses.yellow
-          }`}
-        >
-          <p
-            className={`text-xs italic text-base-content/60 ${
-              isHighlightedTextExpanded ? "" : "line-clamp-3"
-            }`}
-          >
-            {highlight.selectedText}
-          </p>
-          {highlight.selectedText.length > 150 && (
-            <button
-              className="text-xs text-primary mt-1 cursor-pointer"
-              onClick={toggleHighlightedTextExpand}
-            >
-              {isHighlightedTextExpanded ? "Show less" : "Show more"}
-            </button>
-          )}
-        </div>
-        {/* notes */}
-        {highlight && highlight.notes && (
-          <>
-            <div className="pt-4 pb-4 border-b border-t border-base-300">
-              <p className="text-xs font-medium mb-1 text-base-content/50">
-                NOTES
-              </p>
-              <p
-                className={`text-sm text-base-content/80 ${
-                  isExpanded ? "" : "line-clamp-3"
-                }`}
-              >
-                {highlight.notes}
-              </p>
-              {highlight.notes.length > 150 && (
-                <button
-                  className="text-xs text-primary mt-1 cursor-pointer"
-                  onClick={toggleExpand}
-                >
-                  {isExpanded ? "Show less" : "Show more"}
-                </button>
-              )}
-            </div>
-          </>
-        )}
-
-        {/* footer */}
-        <div className="flex items-center justify-between mt-2 text-xs">
-          <span className="text-base-content/50">
-            {new Date(highlight.createdAt).toLocaleDateString()}
-          </span>
-          <button
-            className="btn btn-ghost btn-xs"
-            onClick={(e) => {
-              e.stopPropagation();
-              if (onGoToLocation)
-                onGoToLocation(highlight.cfiRange || highlight.cfi);
-            }}
-          >
-            Go to Highlight
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/**
- * HighlightsList - List of highlights for ePub books
- */
-function HighlightsList({
-  highlights = [],
-  onHighlightClick,
-  onGoToLocation,
-  handleDeleteHighlight,
-  activeNoteId,
-  highlightRefs,
-}) {
-  if (highlights.length === 0) {
-    return (
-      <p className="text-sm text-base-content/50 py-4">
-        No highlights yet. Select text and click &quot;Highlight&quot; or
-        &quot;Take Notes&quot; to get started.
-      </p>
-    );
-  }
-
-  return (
-    <div className="space-y-5">
-      {highlights.map((highlight) => (
-        <div
-          key={highlight._id}
-          className={`rounded-lg p-3 border border-base-300`}
-        >
-          <HighlightCard
-            highlight={highlight}
-            onHighlightClick={onHighlightClick}
-            onGoToLocation={onGoToLocation}
-            handleDeleteHighlight={handleDeleteHighlight}
-            activeNoteId={activeNoteId}
-            highlightRefs={highlightRefs}
-          />
-        </div>
-      ))}
-    </div>
-  );
-}
-
 /**
  * QuestionsSidebar - Sidebar panel showing questions for the current book
  * Shows "My Questions" and "Public Q&A" sections
- * For ePub: Also shows "Highlights" section
  */
 export default function QuestionsSidebar({
   isOpen,
@@ -389,13 +186,8 @@ export default function QuestionsSidebar({
   onAddQuestion,
   highlightedQuestionId = null,
   highlightedTextClicked = 0,
-  highlightedNoteId = null,
-  highlightedNoteClicked = 0,
   onQuestionDeleted,
   isEPub = false,
-  highlights = [],
-  onHighlightClick,
-  onHighlightDeleted,
 }) {
   const [questions, setQuestions] = useState({
     myQuestions: [],
@@ -404,15 +196,11 @@ export default function QuestionsSidebar({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState("all");
-  const [activeTab, setActiveTab] = useState("my"); // "my", "public", "highlights"
+  const [activeTab, setActiveTab] = useState("my"); // "my", "public"
   const [deleteModalQuestion, setDeleteModalQuestion] = useState(null);
-  const [deleteModalHighlight, setDeleteModalHighlight] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [isDeletingHighlight, setIsDeletingHighlight] = useState(false);
   const [activeHighlightId, setActiveHighlightId] = useState(null);
-  const [activeNoteId, setActiveNoteId] = useState(null);
   const questionRefs = useRef({});
-  const highlightRefs = useRef({});
   const { data: session } = useSession();
   const currentUserId = session?.user?.id;
 
@@ -489,57 +277,6 @@ export default function QuestionsSidebar({
     }
   }, [highlightedQuestionId, isOpen, isLoading, highlightedTextClicked]);
 
-  // Scroll to and highlight note when highlightedNoteClicked changes
-  useEffect(() => {
-    if (
-      highlightedNoteId &&
-      isOpen &&
-      !isLoading &&
-      highlightedNoteClicked > 0
-    ) {
-      // Switch to highlights tab so the note is visible
-      setActiveTab("highlights");
-
-      const timeoutId = setTimeout(() => {
-        setActiveNoteId(highlightedNoteId);
-        const noteRef = highlightRefs.current[highlightedNoteId];
-        if (noteRef) {
-          noteRef.scrollIntoView({
-            behavior: "smooth",
-            block: "center",
-          });
-        }
-        setTimeout(() => {
-          setActiveNoteId(null);
-        }, 2000);
-      }, 300);
-
-      return () => clearTimeout(timeoutId);
-    }
-  }, [highlightedNoteId, highlightedNoteClicked, isOpen, isLoading]);
-
-  // Handle delete highlight - opens modal
-  const handleDeleteHighlight = useCallback((highlight) => {
-    setDeleteModalHighlight(highlight);
-  }, []);
-
-  // Confirm delete highlight
-  const handleDeleteHighlightConfirm = useCallback(async () => {
-    if (!deleteModalHighlight) return;
-    setIsDeletingHighlight(true);
-    try {
-      if (onHighlightDeleted) {
-        await onHighlightDeleted(deleteModalHighlight._id);
-      }
-      setDeleteModalHighlight(null);
-    } catch (err) {
-      console.error("Error deleting highlight:", err);
-      toast.error(err.message || "Failed to delete highlight");
-    } finally {
-      setIsDeletingHighlight(false);
-    }
-  }, [deleteModalHighlight, onHighlightDeleted]);
-
   // Handle click on question to go to page/location
   const handleQuestionClick = useCallback(
     (question) => {
@@ -615,7 +352,7 @@ export default function QuestionsSidebar({
         </div>
       </div>
 
-      {/* Question type tabs (My Questions / Public Questions / Highlights for ePub) */}
+      {/* Question type tabs (My Questions / Public Questions) */}
       <div className="flex tabs border-b border-base-100 py-2">
         <FilterTab
           isActive={activeTab === "my"}
@@ -629,14 +366,6 @@ export default function QuestionsSidebar({
         >
           Public Q&A
         </FilterTab>
-        {isEPub && (
-          <FilterTab
-            isActive={activeTab === "highlights"}
-            onClick={() => setActiveTab("highlights")}
-          >
-            Highlights
-          </FilterTab>
-        )}
       </div>
 
       {/* Answer status filter tabs */}
@@ -672,17 +401,6 @@ export default function QuestionsSidebar({
               Try Again
             </button>
           </div>
-        ) : activeTab === "highlights" && isEPub ? (
-          <div>
-            <HighlightsList
-              highlights={highlights}
-              onHighlightClick={onHighlightClick}
-              onGoToLocation={onGoToPage}
-              handleDeleteHighlight={handleDeleteHighlight}
-              activeNoteId={activeNoteId}
-              highlightRefs={highlightRefs}
-            />
-          </div>
         ) : (
           <div>
             <QuestionsList
@@ -702,6 +420,7 @@ export default function QuestionsSidebar({
               currentUserId={currentUserId}
               onDelete={handleDeleteQuestion}
               isPublic={activeTab !== "my"}
+              isEPub={isEPub}
             />
           </div>
         )}
@@ -726,34 +445,6 @@ export default function QuestionsSidebar({
           onClose={() => setDeleteModalQuestion(null)}
           onConfirm={handleDeleteConfirm}
           isDeleting={isDeleting}
-        />
-      )}
-
-      {/* Delete Highlight Modal */}
-      {deleteModalHighlight && (
-        <DeleteModal
-          title="Delete Highlight/Note"
-          itemPreview={
-            <div className="space-y-2">
-              {deleteModalHighlight.notes && (
-                <p className="text-sm">
-                  <strong>Note:</strong> {deleteModalHighlight.notes}
-                </p>
-              )}
-              {deleteModalHighlight.selectedText && (
-                <p className="text-xs italic text-base-content/60 mt-4">
-                  <strong>Highlighted Text: </strong>
-                  <br />
-                  {deleteModalHighlight.selectedText}
-                </p>
-              )}
-            </div>
-          }
-          warningMessage="This will permanently delete this highlight and its note (if any)."
-          confirmButtonText="Delete"
-          onClose={() => setDeleteModalHighlight(null)}
-          onConfirm={handleDeleteHighlightConfirm}
-          isDeleting={isDeletingHighlight}
         />
       )}
     </div>

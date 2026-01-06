@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { toast } from "react-hot-toast";
 import apiClient from "@/libs/api";
 
@@ -19,6 +19,7 @@ import NotesModal from "./NotesModal";
 import TextSelectionMenu from "./TextSelectionMenu";
 import QuestionModal from "./QuestionModal";
 import QuestionsSidebar from "./QuestionsSidebar";
+import HighlightsSidebar from "./HighlightsSidebar";
 
 /**
  * ePubReader - Main component for reading ePub files
@@ -33,7 +34,8 @@ export default function EPubReader({
 }) {
   // UI state
   const [showTOC, setShowTOC] = useState(false);
-  const [showSidebar, setShowSidebar] = useState(false);
+  const [showQuestionsSidebar, setShowQuestionsSidebar] = useState(false);
+  const [showHighlightsSidebar, setShowHighlightsSidebar] = useState(false);
   const [showNotesModal, setShowNotesModal] = useState(false);
   const [showQuestionModal, setShowQuestionModal] = useState(false);
   const [selectedHighlight, setSelectedHighlight] = useState(null);
@@ -43,6 +45,10 @@ export default function EPubReader({
   const [highlightedTextClicked, setHighlightedTextClicked] = useState(0);
   const [highlightedNoteId, setHighlightedNoteId] = useState(null);
   const [highlightedNoteClicked, setHighlightedNoteClicked] = useState(0);
+
+  // Refs for click outside handling
+  const questionsSidebarRef = useRef(null);
+  const highlightsSidebarRef = useRef(null);
 
   // Preferences state
   const [preferencesLoaded, setPreferencesLoaded] = useState(false);
@@ -121,7 +127,7 @@ export default function EPubReader({
     currentChapter,
     showNotesModal,
     showQuestionModal,
-    showSidebar,
+    showSidebar: showQuestionsSidebar || showHighlightsSidebar,
   });
 
   // Highlights
@@ -137,7 +143,9 @@ export default function EPubReader({
     refreshTrigger: sidebarRefreshTrigger,
     onHighlightClick: (highlightId) => {
       setHighlightedNoteId(highlightId);
-      setShowSidebar(true);
+      // Close questions sidebar if open, open highlights sidebar
+      setShowQuestionsSidebar(false);
+      setShowHighlightsSidebar(true);
       setHighlightedNoteClicked((prev) => prev + 1);
     },
   });
@@ -149,7 +157,9 @@ export default function EPubReader({
     refreshTrigger: sidebarRefreshTrigger,
     onHighlightClick: (questionId) => {
       setHighlightedQuestionId(questionId);
-      setShowSidebar(true);
+      // Close highlights sidebar if open, open questions sidebar
+      setShowHighlightsSidebar(false);
+      setShowQuestionsSidebar(true);
       setHighlightedTextClicked((prev) => prev + 1);
     },
   });
@@ -347,14 +357,92 @@ export default function EPubReader({
     [goToLocation]
   );
 
-  // Navigate to location from sidebar
+  // Toggle questions sidebar (close highlights sidebar if open)
+  const handleToggleQuestionsSidebar = useCallback(() => {
+    if (showQuestionsSidebar) {
+      // Close questions sidebar
+      setShowQuestionsSidebar(false);
+      setHighlightedQuestionId(null);
+      setHighlightedTextClicked(0);
+    } else {
+      // Open questions sidebar, close highlights sidebar
+      setShowHighlightsSidebar(false);
+      setHighlightedNoteId(null);
+      setHighlightedNoteClicked(0);
+      setShowQuestionsSidebar(true);
+    }
+  }, [showQuestionsSidebar]);
+
+  // Toggle highlights sidebar (close questions sidebar if open)
+  const handleToggleHighlightsSidebar = useCallback(() => {
+    if (showHighlightsSidebar) {
+      // Close highlights sidebar
+      setShowHighlightsSidebar(false);
+      setHighlightedNoteId(null);
+      setHighlightedNoteClicked(0);
+    } else {
+      // Open highlights sidebar, close questions sidebar
+      setShowQuestionsSidebar(false);
+      setHighlightedQuestionId(null);
+      setHighlightedTextClicked(0);
+      setShowHighlightsSidebar(true);
+    }
+  }, [showHighlightsSidebar]);
+
+  // Close questions sidebar
   const handleCloseQuestionsSidebar = useCallback(() => {
-    setShowSidebar(false);
+    setShowQuestionsSidebar(false);
     setHighlightedQuestionId(null);
     setHighlightedTextClicked(0);
+  }, []);
+
+  // Close highlights sidebar
+  const handleCloseHighlightsSidebar = useCallback(() => {
+    setShowHighlightsSidebar(false);
     setHighlightedNoteId(null);
     setHighlightedNoteClicked(0);
-  }, [setShowSidebar, setHighlightedQuestionId, setHighlightedTextClicked]);
+  }, []);
+
+  // Handle click outside sidebars to close them
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      // Don't close sidebars if clicking on modals
+      if (showNotesModal || showQuestionModal) return;
+
+      // Don't close if clicking on toolbar buttons
+      if (event.target.closest(".toolbar")) return;
+
+      // Check if click is outside both sidebars
+      const isOutsideQuestionsSidebar =
+        !showQuestionsSidebar ||
+        !event.target.closest('[data-sidebar="questions"]');
+      const isOutsideHighlightsSidebar =
+        !showHighlightsSidebar ||
+        !event.target.closest('[data-sidebar="highlights"]');
+
+      // Close questions sidebar if clicking outside
+      if (showQuestionsSidebar && isOutsideQuestionsSidebar) {
+        handleCloseQuestionsSidebar();
+      }
+
+      // Close highlights sidebar if clicking outside
+      if (showHighlightsSidebar && isOutsideHighlightsSidebar) {
+        handleCloseHighlightsSidebar();
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [
+    showQuestionsSidebar,
+    showHighlightsSidebar,
+    showNotesModal,
+    showQuestionModal,
+    handleCloseQuestionsSidebar,
+    handleCloseHighlightsSidebar,
+  ]);
 
   return (
     <div className="flex flex-col w-full h-full bg-base-100 overflow-hidden">
@@ -366,7 +454,8 @@ export default function EPubReader({
         isLoading={isLoading}
         fontSize={fontSize}
         showTOC={showTOC}
-        showSidebar={showSidebar}
+        showQuestionsSidebar={showQuestionsSidebar}
+        showHighlightsSidebar={showHighlightsSidebar}
         bookId={bookId}
         isAdmin={isAdmin}
         onPrevPage={prevPage}
@@ -374,7 +463,8 @@ export default function EPubReader({
         onIncreaseFontSize={increaseFontSize}
         onDecreaseFontSize={decreaseFontSize}
         onToggleTOC={() => setShowTOC(!showTOC)}
-        onToggleSidebar={() => setShowSidebar(!showSidebar)}
+        onToggleQuestionsSidebar={handleToggleQuestionsSidebar}
+        onToggleHighlightsSidebar={handleToggleHighlightsSidebar}
         atStart={atStart}
         atEnd={atEnd}
       />
@@ -451,23 +541,36 @@ export default function EPubReader({
 
       {/* Questions Sidebar */}
       {bookId && (
-        <QuestionsSidebar
-          isOpen={showSidebar}
-          onClose={handleCloseQuestionsSidebar}
-          bookId={bookId}
-          onGoToPage={handleGoToLocation}
-          refreshTrigger={sidebarRefreshTrigger}
-          onAddQuestion={handleAddQuestion}
-          onQuestionDeleted={handleQuestionDeleted}
-          isEPub={true}
-          highlights={highlights}
-          onHighlightClick={handleHighlightClick}
-          highlightedQuestionId={highlightedQuestionId}
-          highlightedTextClicked={highlightedTextClicked}
-          highlightedNoteId={highlightedNoteId}
-          highlightedNoteClicked={highlightedNoteClicked}
-          onHighlightDeleted={handleDeleteHighlight}
-        />
+        <div data-sidebar="questions">
+          <QuestionsSidebar
+            isOpen={showQuestionsSidebar}
+            onClose={handleCloseQuestionsSidebar}
+            bookId={bookId}
+            onGoToPage={handleGoToLocation}
+            refreshTrigger={sidebarRefreshTrigger}
+            onAddQuestion={handleAddQuestion}
+            onQuestionDeleted={handleQuestionDeleted}
+            isEPub={true}
+            highlightedQuestionId={highlightedQuestionId}
+            highlightedTextClicked={highlightedTextClicked}
+          />
+        </div>
+      )}
+
+      {/* Highlights Sidebar */}
+      {bookId && (
+        <div data-sidebar="highlights">
+          <HighlightsSidebar
+            isOpen={showHighlightsSidebar}
+            onClose={handleCloseHighlightsSidebar}
+            highlights={highlights}
+            onHighlightClick={handleHighlightClick}
+            onGoToLocation={handleGoToLocation}
+            onHighlightDeleted={handleDeleteHighlight}
+            highlightedNoteId={highlightedNoteId}
+            highlightedNoteClicked={highlightedNoteClicked}
+          />
+        </div>
       )}
     </div>
   );

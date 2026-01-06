@@ -628,6 +628,7 @@ export default function PDFReader({
           highlightedQuestionId={highlightedQuestionId}
           highlightedTextClicked={highlightedTextClicked}
           onQuestionDeleted={handleQuestionDeleted}
+          isEPub={false}
         />
       )}
     </div>
