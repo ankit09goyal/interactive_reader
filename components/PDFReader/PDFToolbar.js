@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import icons from "@/libs/icons";
 
 /**
  * PDFToolbar - Toolbar component with navigation, zoom, and view controls
@@ -30,20 +31,7 @@ export default function PDFToolbar({
       {/* Left: Back + Title */}
       <div className="flex items-center gap-2">
         <Link href={backHref} className="btn btn-ghost btn-sm gap-1">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-5 w-5"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M10 19l-7-7m0 0l7-7m-7 7h18"
-            />
-          </svg>
+          {icons.back}
           <span className="hidden sm:inline text-xs">Back</span>
         </Link>
         <div className="flex flex-col">
@@ -59,20 +47,7 @@ export default function PDFToolbar({
           className="btn btn-ghost btn-sm btn-square"
           title="Previous page (Left Arrow)"
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-5 w-5"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M15 19l-7-7 7-7"
-            />
-          </svg>
+          {icons.chevronLeft}
         </button>
 
         <div className="flex items-center gap-1 text-sm">
@@ -94,20 +69,7 @@ export default function PDFToolbar({
           className="btn btn-ghost btn-sm btn-square"
           title="Next page (Right Arrow)"
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-5 w-5"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M9 5l7 7-7 7"
-            />
-          </svg>
+          {icons.chevronRight}
         </button>
       </div>
 
@@ -120,20 +82,7 @@ export default function PDFToolbar({
           className="btn btn-ghost btn-sm btn-square"
           title="Zoom out (-)"
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-5 w-5"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM13 10H7"
-            />
-          </svg>
+          {icons.zoomOut}
         </button>
 
         <button
@@ -142,20 +91,7 @@ export default function PDFToolbar({
           className="btn btn-ghost btn-sm btn-square"
           title="Zoom in (+)"
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-5 w-5"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7"
-            />
-          </svg>
+          {icons.zoomIn}
         </button>
 
         {/* View Mode Toggle */}
@@ -166,37 +102,7 @@ export default function PDFToolbar({
             viewMode === "one-page" ? "continuous scroll" : "one page"
           } view (V)`}
         >
-          {viewMode === "one-page" ? (
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M19 14l-7 7m0 0l-7-7m7 7V3"
-              />
-            </svg>
-          ) : (
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-              />
-            </svg>
-          )}
+          {viewMode === "one-page" ? icons.scrollDown : icons.page}
           <span className="hidden sm:inline text-xs">
             {viewMode === "one-page" ? "Scroll" : "Page"}
           </span>
@@ -211,20 +117,7 @@ export default function PDFToolbar({
             }`}
             title="Questions & Answers (Q)"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
+            {icons.question}
             <span className="hidden sm:inline text-xs">Q&A</span>
           </button>
         )}
@@ -236,20 +129,7 @@ export default function PDFToolbar({
             className="btn btn-primary btn-sm gap-1"
             title="Create Public Q&A"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-4 w-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 4v16m8-8H4"
-              />
-            </svg>
+            {icons.plus}
             <span className="hidden sm:inline text-xs">Create Q&A</span>
           </button>
         )}
