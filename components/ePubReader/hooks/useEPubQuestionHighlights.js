@@ -35,7 +35,9 @@ export function useEPubQuestionHighlights({
     const fetchHighlights = async () => {
       setIsLoading(true);
       try {
-        const response = await apiClient.get(`/user/questions?bookId=${bookId}`);
+        const response = await apiClient.get(
+          `/user/questions?bookId=${bookId}`
+        );
 
         // Only include user's own questions that have selected text and epubCfiRange
         const userQuestions = (response.myQuestions || []).filter(
@@ -112,5 +114,3 @@ export function useEPubQuestionHighlights({
 
   return { highlights, isLoading };
 }
-
-
