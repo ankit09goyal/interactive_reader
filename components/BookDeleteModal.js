@@ -1,6 +1,7 @@
 "use client";
 
 import DeleteModal from "./DeleteModal";
+import { getFileType } from "@/libs/bookUtils";
 
 export default function BookDeleteModal({
   book,
@@ -14,8 +15,7 @@ export default function BookDeleteModal({
       <p className="text-sm text-base-content/70">by {book.author}</p>
       <div className="flex gap-2 mt-2">
         <span className="badge badge-sm">
-          {book.fileType ||
-            (book.mimeType === "application/pdf" ? "PDF" : "EPUB")}
+          {book.fileType || getFileType(book.mimeType)}
         </span>
         <span className="badge badge-sm ">{book.fileSizeFormatted}</span>
       </div>

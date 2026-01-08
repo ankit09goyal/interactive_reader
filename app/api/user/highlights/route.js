@@ -3,6 +3,7 @@ import { auth } from "@/libs/auth";
 import connectMongo from "@/libs/mongoose";
 import Highlight from "@/models/Highlight";
 import UserBookAccess from "@/models/UserBookAccess";
+import { handleApiError } from "@/libs/apiHelpers";
 
 // GET /api/user/highlights - Get user's highlights for a book
 export async function GET(req) {
@@ -67,11 +68,7 @@ export async function GET(req) {
 
     return NextResponse.json({ highlights: transformedHighlights });
   } catch (error) {
-    console.error("Error fetching highlights:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch highlights" },
-      { status: 500 }
-    );
+    return handleApiError(error, "Failed to fetch highlights", "fetching highlights");
   }
 }
 
@@ -156,11 +153,7 @@ export async function POST(req) {
       { status: 201 }
     );
   } catch (error) {
-    console.error("Error creating highlight:", error);
-    return NextResponse.json(
-      { error: "Failed to create highlight" },
-      { status: 500 }
-    );
+    return handleApiError(error, "Failed to create highlight", "creating highlight");
   }
 }
 

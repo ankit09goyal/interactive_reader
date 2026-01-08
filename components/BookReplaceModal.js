@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { toast } from "react-hot-toast";
+import { formatFileSize, getFileType } from "@/libs/bookUtils";
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 const ALLOWED_TYPES = ["application/pdf", "application/epub+zip"];
@@ -90,14 +91,6 @@ export default function BookReplaceModal({ book, onClose, onSuccess }) {
     }
   };
 
-  const formatFileSize = (bytes) => {
-    if (bytes === 0) return "0 Bytes";
-    const k = 1024;
-    const sizes = ["Bytes", "KB", "MB", "GB"];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
-  };
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
@@ -142,7 +135,7 @@ export default function BookReplaceModal({ book, onClose, onSuccess }) {
           <p className="text-sm text-base-content/70">by {book.author}</p>
           <div className="flex gap-2 mt-2">
             <span className="badge badge-sm">
-              {book.fileType || (book.mimeType === "application/pdf" ? "PDF" : "EPUB")}
+              {book.fileType || getFileType(book.mimeType)}
             </span>
             <span className="badge badge-sm badge-ghost">
               {book.fileSizeFormatted}
@@ -168,7 +161,9 @@ export default function BookReplaceModal({ book, onClose, onSuccess }) {
             {selectedFile && (
               <div className="mt-2 text-sm text-base-content/70">
                 <span className="font-medium">{selectedFile.name}</span>
-                <span className="ml-2">({formatFileSize(selectedFile.size)})</span>
+                <span className="ml-2">
+                  ({formatFileSize(selectedFile.size)})
+                </span>
               </div>
             )}
           </div>
@@ -221,4 +216,3 @@ export default function BookReplaceModal({ book, onClose, onSuccess }) {
     </div>
   );
 }
-

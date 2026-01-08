@@ -5,6 +5,7 @@ import connectMongo from "@/libs/mongoose";
 import Question from "@/models/Question";
 import Book from "@/models/Book";
 import User from "@/models/User";
+import { handleApiError } from "@/libs/apiHelpers";
 
 // GET /api/admin/questions - List all questions for admin's books
 export async function GET(req) {
@@ -111,11 +112,7 @@ export async function GET(req) {
       })),
     });
   } catch (error) {
-    console.error("Error fetching admin questions:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch questions" },
-      { status: 500 }
-    );
+    return handleApiError(error, "Failed to fetch questions", "fetching admin questions");
   }
 }
 

@@ -4,6 +4,7 @@ import { verifyAdminForApi } from "@/libs/roles";
 import connectMongo from "@/libs/mongoose";
 import Question from "@/models/Question";
 import Book from "@/models/Book";
+import { handleApiError } from "@/libs/apiHelpers";
 
 // POST /api/admin/questions/create - Create a new public question as admin
 export async function POST(req) {
@@ -83,11 +84,7 @@ export async function POST(req) {
       question: newQuestion.toJSON(),
     });
   } catch (error) {
-    console.error("Error creating admin question:", error);
-    return NextResponse.json(
-      { error: "Failed to create question" },
-      { status: 500 }
-    );
+    return handleApiError(error, "Failed to create question", "creating admin question");
   }
 }
 

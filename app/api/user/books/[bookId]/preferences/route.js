@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/libs/auth";
 import connectMongo from "@/libs/mongoose";
 import UserBookAccess from "@/models/UserBookAccess";
+import { handleApiError } from "@/libs/apiHelpers";
 
 // GET /api/user/books/[bookId]/preferences - Get reading preferences for a book
 export async function GET(req, { params }) {
@@ -53,11 +54,7 @@ export async function GET(req, { params }) {
 
     return NextResponse.json({ preferences });
   } catch (error) {
-    console.error("Error fetching book preferences:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch preferences" },
-      { status: 500 }
-    );
+    return handleApiError(error, "Failed to fetch preferences", "fetching book preferences");
   }
 }
 
@@ -198,11 +195,7 @@ export async function PUT(req, { params }) {
   try {
     return await updatePreferences(req, params);
   } catch (error) {
-    console.error("Error updating book preferences:", error);
-    return NextResponse.json(
-      { error: "Failed to update preferences" },
-      { status: 500 }
-    );
+    return handleApiError(error, "Failed to update preferences", "updating book preferences");
   }
 }
 
@@ -211,10 +204,6 @@ export async function POST(req, { params }) {
   try {
     return await updatePreferences(req, params);
   } catch (error) {
-    console.error("Error updating book preferences:", error);
-    return NextResponse.json(
-      { error: "Failed to update preferences" },
-      { status: 500 }
-    );
+    return handleApiError(error, "Failed to update preferences", "updating book preferences");
   }
 }

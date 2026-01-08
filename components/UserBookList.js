@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { getFileType } from "@/libs/bookUtils";
 
 export default function UserBookList({ books }) {
   const getFileIcon = (mimeType) => {
@@ -108,8 +109,7 @@ export default function UserBookList({ books }) {
               )}
               <div className="flex flex-wrap gap-2 mt-2">
                 <span className="badge badge-sm badge-ghost">
-                  {book.fileType ||
-                    (book.mimeType === "application/pdf" ? "PDF" : "EPUB")}
+                  {book.fileType || getFileType(book.mimeType)}
                 </span>
                 <span className="badge badge-sm badge-ghost">
                   {book.fileSizeFormatted}

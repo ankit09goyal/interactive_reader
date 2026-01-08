@@ -5,6 +5,7 @@ import connectMongo from "@/libs/mongoose";
 import User from "@/models/User";
 import Book from "@/models/Book";
 import UserBookAccess from "@/models/UserBookAccess";
+import { handleApiError } from "@/libs/apiHelpers";
 
 // GET /api/admin/users/[userId] - Get single user (admin only)
 export async function GET(req, { params }) {
@@ -65,11 +66,7 @@ export async function GET(req, { params }) {
       },
     });
   } catch (error) {
-    console.error("Error fetching user:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch user" },
-      { status: 500 }
-    );
+    return handleApiError(error, "Failed to fetch user", "fetching user");
   }
 }
 
@@ -141,11 +138,7 @@ export async function PUT(req, { params }) {
 
     return NextResponse.json({ user });
   } catch (error) {
-    console.error("Error updating user:", error);
-    return NextResponse.json(
-      { error: "Failed to update user" },
-      { status: 500 }
-    );
+    return handleApiError(error, "Failed to update user", "updating user");
   }
 }
 
@@ -234,10 +227,6 @@ export async function DELETE(req, { params }) {
       softDeleted: false,
     });
   } catch (error) {
-    console.error("Error deleting user:", error);
-    return NextResponse.json(
-      { error: "Failed to delete user" },
-      { status: 500 }
-    );
+    return handleApiError(error, "Failed to delete user", "deleting user");
   }
 }

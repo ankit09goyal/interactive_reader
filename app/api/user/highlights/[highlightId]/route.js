@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/libs/auth";
 import connectMongo from "@/libs/mongoose";
 import Highlight from "@/models/Highlight";
+import { handleApiError } from "@/libs/apiHelpers";
 
 // GET /api/user/highlights/[highlightId] - Get a specific highlight
 export async function GET(req, { params }) {
@@ -57,11 +58,7 @@ export async function GET(req, { params }) {
 
     return NextResponse.json({ highlight: transformedHighlight });
   } catch (error) {
-    console.error("Error fetching highlight:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch highlight" },
-      { status: 500 }
-    );
+    return handleApiError(error, "Failed to fetch highlight", "fetching highlight");
   }
 }
 
@@ -148,11 +145,7 @@ export async function PUT(req, { params }) {
 
     return NextResponse.json({ highlight: transformedHighlight });
   } catch (error) {
-    console.error("Error updating highlight:", error);
-    return NextResponse.json(
-      { error: "Failed to update highlight" },
-      { status: 500 }
-    );
+    return handleApiError(error, "Failed to update highlight", "updating highlight");
   }
 }
 
@@ -194,11 +187,7 @@ export async function DELETE(req, { params }) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Error deleting highlight:", error);
-    return NextResponse.json(
-      { error: "Failed to delete highlight" },
-      { status: 500 }
-    );
+    return handleApiError(error, "Failed to delete highlight", "deleting highlight");
   }
 }
 

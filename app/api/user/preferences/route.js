@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/libs/auth";
 import connectMongo from "@/libs/mongoose";
 import User from "@/models/User";
+import { handleApiError } from "@/libs/apiHelpers";
 
 // GET /api/user/preferences - Get current user's preferences
 export async function GET(req) {
@@ -32,11 +33,7 @@ export async function GET(req) {
 
     return NextResponse.json({ preferences });
   } catch (error) {
-    console.error("Error fetching preferences:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch preferences" },
-      { status: 500 }
-    );
+    return handleApiError(error, "Failed to fetch preferences", "fetching preferences");
   }
 }
 
@@ -97,11 +94,7 @@ export async function PUT(req) {
 
     return NextResponse.json({ preferences });
   } catch (error) {
-    console.error("Error updating preferences:", error);
-    return NextResponse.json(
-      { error: "Failed to update preferences" },
-      { status: 500 }
-    );
+    return handleApiError(error, "Failed to update preferences", "updating preferences");
   }
 }
 

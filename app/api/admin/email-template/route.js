@@ -4,6 +4,7 @@ import { verifyAdminForApi } from "@/libs/roles";
 import connectMongo from "@/libs/mongoose";
 import EmailTemplate from "@/models/EmailTemplate";
 import { getDefaultEmailTemplate } from "@/libs/emailNotifications";
+import { handleApiError } from "@/libs/apiHelpers";
 
 // GET /api/admin/email-template - Get admin's email template (or default)
 export async function GET(req) {
@@ -44,11 +45,7 @@ export async function GET(req) {
       isDefault: true,
     });
   } catch (error) {
-    console.error("Error fetching email template:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch email template" },
-      { status: 500 }
-    );
+    return handleApiError(error, "Failed to fetch email template", "fetching email template");
   }
 }
 
@@ -102,11 +99,7 @@ export async function PUT(req) {
       message: "Template saved successfully",
     });
   } catch (error) {
-    console.error("Error saving email template:", error);
-    return NextResponse.json(
-      { error: "Failed to save email template" },
-      { status: 500 }
-    );
+    return handleApiError(error, "Failed to save email template", "saving email template");
   }
 }
 
@@ -139,10 +132,6 @@ export async function DELETE(req) {
       message: "Template reset to default",
     });
   } catch (error) {
-    console.error("Error resetting email template:", error);
-    return NextResponse.json(
-      { error: "Failed to reset email template" },
-      { status: 500 }
-    );
+    return handleApiError(error, "Failed to reset email template", "resetting email template");
   }
 }

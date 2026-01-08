@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { toast } from "react-hot-toast";
 import BookReplaceModal from "./BookReplaceModal";
 import BookDeleteModal from "./BookDeleteModal";
+import { getFileType } from "@/libs/bookUtils";
 
 export default function BookList({ books: initialBooks, onBooksChange }) {
   const [books, setBooks] = useState(initialBooks);
@@ -164,8 +165,7 @@ export default function BookList({ books: initialBooks, onBooksChange }) {
                 )}
                 <div className="flex flex-wrap gap-2 mt-2">
                   <span className="badge badge-sm badge-ghost">
-                    {book.fileType ||
-                      (book.mimeType === "application/pdf" ? "PDF" : "EPUB")}
+                    {book.fileType || getFileType(book.mimeType)}
                   </span>
                   <span className="badge badge-sm badge-ghost">
                     {book.fileSizeFormatted}

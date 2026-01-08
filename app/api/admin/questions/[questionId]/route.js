@@ -5,6 +5,7 @@ import connectMongo from "@/libs/mongoose";
 import Question from "@/models/Question";
 import Book from "@/models/Book";
 import User from "@/models/User";
+import { handleApiError } from "@/libs/apiHelpers";
 
 // GET /api/admin/questions/[questionId] - Get a single question
 export async function GET(req, { params }) {
@@ -89,10 +90,10 @@ export async function GET(req, { params }) {
       editedVersions: editedVersions.map(formatQuestion),
     });
   } catch (error) {
-    console.error("Error fetching question:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch question" },
-      { status: 500 }
+    return handleApiError(
+      error,
+      "Failed to fetch question",
+      "fetching question"
     );
   }
 }
@@ -163,10 +164,10 @@ export async function PUT(req, { params }) {
       question: question.toJSON(),
     });
   } catch (error) {
-    console.error("Error updating question:", error);
-    return NextResponse.json(
-      { error: "Failed to update question" },
-      { status: 500 }
+    return handleApiError(
+      error,
+      "Failed to update question",
+      "updating question"
     );
   }
 }
@@ -220,11 +221,10 @@ export async function DELETE(req, { params }) {
       message: "Question deleted successfully",
     });
   } catch (error) {
-    console.error("Error deleting question:", error);
-    return NextResponse.json(
-      { error: "Failed to delete question" },
-      { status: 500 }
+    return handleApiError(
+      error,
+      "Failed to delete question",
+      "deleting question"
     );
   }
 }
-

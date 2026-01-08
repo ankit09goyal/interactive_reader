@@ -3,6 +3,7 @@ import { auth } from "@/libs/auth";
 import connectMongo from "@/libs/mongoose";
 import { createCustomerPortal } from "@/libs/stripe";
 import User from "@/models/User";
+import { handleApiError } from "@/libs/apiHelpers";
 
 export async function POST(req) {
   const session = await auth();
@@ -40,9 +41,8 @@ export async function POST(req) {
       return NextResponse.json({
         url: stripePortalUrl,
       });
-    } catch (e) {
-      console.error(e);
-      return NextResponse.json({ error: e?.message }, { status: 500 });
+    } catch (error) {
+      return handleApiError(error, "Failed to create customer portal", "creating customer portal");
     }
   } else {
     // Not Signed in

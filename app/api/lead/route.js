@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import connectMongo from "@/libs/mongoose";
+import { handleApiError } from "@/libs/apiHelpers";
 
 // This route is used to store the leads that are generated from the landing page.
 // The API call is initiated by <ButtonLead /> component
@@ -25,8 +26,7 @@ export async function POST(req) {
     // }
 
     return NextResponse.json({});
-  } catch (e) {
-    console.error(e);
-    return NextResponse.json({ error: e.message }, { status: 500 });
+  } catch (error) {
+    return handleApiError(error, "Failed to process lead", "processing lead");
   }
 }

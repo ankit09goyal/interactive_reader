@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import { formatFileSize } from "./bookUtils";
 
 // Allowed MIME types for book uploads
 export const ALLOWED_MIME_TYPES = {
@@ -79,7 +80,7 @@ export function getUserUploadDir(userId) {
  */
 export async function ensureUploadDir(userId) {
   const uploadDir = getUserUploadDir(userId);
-  
+
   try {
     await fs.promises.mkdir(uploadDir, { recursive: true });
     return uploadDir;
@@ -132,19 +133,6 @@ export async function deleteFile(filePath) {
 }
 
 /**
- * Format file size to human-readable string
- * @param {number} bytes - File size in bytes
- * @returns {string} - Formatted size string
- */
-export function formatFileSize(bytes) {
-  if (bytes === 0) return "0 Bytes";
-  const k = 1024;
-  const sizes = ["Bytes", "KB", "MB", "GB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
-}
-
-/**
  * Validate uploaded file
  * @param {File|{size: number, type: string}} file - File object
  * @returns {{valid: boolean, error?: string}} - Validation result
@@ -164,10 +152,11 @@ export function validateFile(file) {
   if (!isValidFileSize(file.size)) {
     return {
       valid: false,
-      error: `File too large. Maximum size is ${formatFileSize(MAX_FILE_SIZE)}.`,
+      error: `File too large. Maximum size is ${formatFileSize(
+        MAX_FILE_SIZE
+      )}.`,
     };
   }
 
   return { valid: true };
 }
-

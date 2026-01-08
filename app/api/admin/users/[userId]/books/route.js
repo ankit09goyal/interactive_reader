@@ -5,6 +5,7 @@ import connectMongo from "@/libs/mongoose";
 import User from "@/models/User";
 import Book from "@/models/Book";
 import UserBookAccess from "@/models/UserBookAccess";
+import { handleApiError } from "@/libs/apiHelpers";
 
 // GET /api/admin/users/[userId]/books - List all books a user has access to (filtered by admin's books)
 export async function GET(req, { params }) {
@@ -94,11 +95,7 @@ export async function GET(req, { params }) {
       totalAdminBooks: allAdminBooks.length,
     });
   } catch (error) {
-    console.error("Error fetching user books:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch user books" },
-      { status: 500 }
-    );
+    return handleApiError(error, "Failed to fetch user books", "fetching user books");
   }
 }
 
@@ -182,11 +179,7 @@ export async function POST(req, { params }) {
       alreadyHadAccess: bookIds.length - result.upsertedCount,
     });
   } catch (error) {
-    console.error("Error granting book access:", error);
-    return NextResponse.json(
-      { error: "Failed to grant book access" },
-      { status: 500 }
-    );
+    return handleApiError(error, "Failed to grant book access", "granting book access");
   }
 }
 
@@ -259,10 +252,6 @@ export async function DELETE(req, { params }) {
       message: "Book access revoked successfully",
     });
   } catch (error) {
-    console.error("Error revoking book access:", error);
-    return NextResponse.json(
-      { error: "Failed to revoke book access" },
-      { status: 500 }
-    );
+    return handleApiError(error, "Failed to revoke book access", "revoking book access");
   }
 }

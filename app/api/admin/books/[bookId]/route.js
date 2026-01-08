@@ -9,6 +9,8 @@ import {
   saveFile,
   deleteFile,
 } from "@/libs/fileUpload";
+import { transformBook } from "@/libs/bookUtils";
+import { handleApiError } from "@/libs/apiHelpers";
 
 // GET /api/admin/books/[bookId] - Get single book details
 export async function GET(req, { params }) {
@@ -39,22 +41,10 @@ export async function GET(req, { params }) {
     }
 
     return NextResponse.json({
-      book: {
-        ...book,
-        _id: book._id.toString(),
-        uploadedBy: book.uploadedBy?.toString(),
-        createdAt: book.createdAt?.toISOString(),
-        updatedAt: book.updatedAt?.toISOString(),
-        fileSizeFormatted: formatFileSize(book.fileSize),
-        fileType: book.mimeType === "application/pdf" ? "PDF" : "EPUB",
-      },
+      book: transformBook(book),
     });
   } catch (error) {
-    console.error("Error fetching book:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch book" },
-      { status: 500 }
-    );
+    return handleApiError(error, "Failed to fetch book", "fetching book");
   }
 }
 
@@ -94,11 +84,7 @@ export async function DELETE(req, { params }) {
 
     return NextResponse.json({ message: "Book deleted successfully" });
   } catch (error) {
-    console.error("Error deleting book:", error);
-    return NextResponse.json(
-      { error: "Failed to delete book" },
-      { status: 500 }
-    );
+    return handleApiError(error, "Failed to delete book", "deleting book");
   }
 }
 
@@ -164,26 +150,13 @@ export async function PUT(req, { params }) {
     await book.save();
 
     return NextResponse.json({
-      book: {
-        ...book.toJSON(),
-        fileSizeFormatted: formatFileSize(book.fileSize),
-        fileType: book.mimeType === "application/pdf" ? "PDF" : "EPUB",
-      },
+      book: transformBook(book.toJSON()),
     });
   } catch (error) {
-    console.error("Error replacing book file:", error);
-    return NextResponse.json(
-      { error: "Failed to replace book file" },
-      { status: 500 }
+    return handleApiError(
+      error,
+      "Failed to replace book file",
+      "replacing book file"
     );
   }
-}
-
-// Helper function for file size formatting
-function formatFileSize(bytes) {
-  if (bytes === 0) return "0 Bytes";
-  const k = 1024;
-  const sizes = ["Bytes", "KB", "MB", "GB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
 }

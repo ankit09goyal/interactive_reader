@@ -3,6 +3,7 @@ import { auth } from "@/libs/auth";
 import { verifyAdminForApi } from "@/libs/roles";
 import connectMongo from "@/libs/mongoose";
 import User from "@/models/User";
+import { handleApiError } from "@/libs/apiHelpers";
 
 // GET /api/admin/stats - Get application statistics (admin only)
 export async function GET() {
@@ -69,8 +70,7 @@ export async function GET() {
       usersByMonth,
     });
   } catch (error) {
-    console.error("Error fetching stats:", error);
-    return NextResponse.json({ error: "Failed to fetch stats" }, { status: 500 });
+    return handleApiError(error, "Failed to fetch stats", "fetching stats");
   }
 }
 

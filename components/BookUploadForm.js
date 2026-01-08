@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react";
 import { toast } from "react-hot-toast";
+import { formatFileSize } from "@/libs/bookUtils";
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 const ALLOWED_TYPES = ["application/pdf", "application/epub+zip"];
@@ -81,7 +82,7 @@ export default function BookUploadForm({ onUploadSuccess, onCancel }) {
       }
 
       toast.success("Book uploaded successfully!");
-      
+
       // Reset form
       setFormData({ title: "", author: "", description: "" });
       setSelectedFile(null);
@@ -99,18 +100,10 @@ export default function BookUploadForm({ onUploadSuccess, onCancel }) {
     }
   };
 
-  const formatFileSize = (bytes) => {
-    if (bytes === 0) return "0 Bytes";
-    const k = 1024;
-    const sizes = ["Bytes", "KB", "MB", "GB"];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
-  };
-
   return (
     <div className="bg-base-200 rounded-xl p-6 border border-base-300">
       <h2 className="text-xl font-semibold mb-4">Upload New Book</h2>
-      
+
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Title */}
         <div className="form-control">
@@ -178,7 +171,9 @@ export default function BookUploadForm({ onUploadSuccess, onCancel }) {
           {selectedFile && (
             <div className="mt-2 text-sm text-base-content/70">
               <span className="font-medium">{selectedFile.name}</span>
-              <span className="ml-2">({formatFileSize(selectedFile.size)})</span>
+              <span className="ml-2">
+                ({formatFileSize(selectedFile.size)})
+              </span>
             </div>
           )}
         </div>
@@ -244,4 +239,3 @@ export default function BookUploadForm({ onUploadSuccess, onCancel }) {
     </div>
   );
 }
-

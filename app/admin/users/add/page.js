@@ -4,6 +4,7 @@ import connectMongo from "@/libs/mongoose";
 import Book from "@/models/Book";
 import EmailTemplate from "@/models/EmailTemplate";
 import { getDefaultEmailTemplate } from "@/libs/emailNotifications";
+import { getFileType } from "@/libs/bookUtils";
 import AddUserForm from "./AddUserForm";
 
 export const dynamic = "force-dynamic";
@@ -19,7 +20,7 @@ async function getAdminBooks(adminId) {
     _id: book._id.toString(),
     title: book.title,
     author: book.author,
-    fileType: book.mimeType === "application/pdf" ? "PDF" : "EPUB",
+    fileType: getFileType(book.mimeType),
   }));
 }
 

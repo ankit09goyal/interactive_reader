@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/libs/auth";
 import connectMongo from "@/libs/mongoose";
 import Question from "@/models/Question";
+import { handleApiError } from "@/libs/apiHelpers";
 
 // DELETE /api/user/questions/[questionId] - Delete a question (only if user owns it)
 export async function DELETE(req, { params }) {
@@ -61,11 +62,7 @@ export async function DELETE(req, { params }) {
       message: "Question deleted successfully",
     });
   } catch (error) {
-    console.error("Error deleting question:", error);
-    return NextResponse.json(
-      { error: "Failed to delete question" },
-      { status: 500 }
-    );
+    return handleApiError(error, "Failed to delete question", "deleting question");
   }
 }
 

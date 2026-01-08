@@ -3,6 +3,7 @@ import { auth } from "@/libs/auth";
 import { createCheckout } from "@/libs/stripe";
 import connectMongo from "@/libs/mongoose";
 import User from "@/models/User";
+import { handleApiError } from "@/libs/apiHelpers";
 
 // This function is used to create a Stripe Checkout Session (one-time payment or subscription)
 // It's called by the <ButtonCheckout /> component
@@ -53,8 +54,7 @@ export async function POST(req) {
     });
 
     return NextResponse.json({ url: stripeSessionURL });
-  } catch (e) {
-    console.error(e);
-    return NextResponse.json({ error: e?.message }, { status: 500 });
+  } catch (error) {
+    return handleApiError(error, "Failed to create checkout session", "creating checkout session");
   }
 }

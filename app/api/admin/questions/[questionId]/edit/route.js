@@ -4,6 +4,7 @@ import { verifyAdminForApi } from "@/libs/roles";
 import connectMongo from "@/libs/mongoose";
 import Question from "@/models/Question";
 import Book from "@/models/Book";
+import { handleApiError } from "@/libs/apiHelpers";
 
 // POST /api/admin/questions/[questionId]/edit - Create an edited version of a question
 export async function POST(req, { params }) {
@@ -99,11 +100,10 @@ export async function POST(req, { params }) {
       },
     });
   } catch (error) {
-    console.error("Error creating edited question:", error);
-    return NextResponse.json(
-      { error: "Failed to create edited question" },
-      { status: 500 }
+    return handleApiError(
+      error,
+      "Failed to create edited question",
+      "creating edited question"
     );
   }
 }
-

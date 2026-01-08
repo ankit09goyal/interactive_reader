@@ -3,6 +3,8 @@ import { auth } from "@/libs/auth";
 import connectMongo from "@/libs/mongoose";
 import Book from "@/models/Book";
 import UserBookAccess from "@/models/UserBookAccess";
+import { transformBook } from "@/libs/bookUtils";
+import { handleApiError } from "@/libs/apiHelpers";
 
 // GET /api/user/books/[bookId] - Get a specific book if user has access
 export async function GET(req, { params }) {
@@ -37,48 +39,22 @@ export async function GET(req, { params }) {
 
     // Get the book details
     const book = await Book.findById(bookId)
-      .select("title author description fileName filePath fileSize mimeType createdAt")
+      .select(
+        "title author description fileName filePath fileSize mimeType createdAt"
+      )
       .lean();
 
     if (!book) {
-      return NextResponse.json(
-        { error: "Book not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Book not found" }, { status: 404 });
     }
 
     // Transform book to the expected format
-    const transformedBook = {
-      _id: book._id.toString(),
-      title: book.title,
-      author: book.author,
-      description: book.description,
-      fileName: book.fileName,
-      filePath: book.filePath,
-      fileSize: book.fileSize,
-      mimeType: book.mimeType,
-      createdAt: book.createdAt?.toISOString(),
-      fileSizeFormatted: formatFileSize(book.fileSize),
-      fileType: book.mimeType === "application/pdf" ? "PDF" : "EPUB",
+    const transformedBook = transformBook(book, {
       grantedAt: access.createdAt?.toISOString(),
-    };
+    });
 
     return NextResponse.json({ book: transformedBook });
   } catch (error) {
-    console.error("Error fetching book:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch book" },
-      { status: 500 }
-    );
+    return handleApiError(error, "Failed to fetch book", "fetching book");
   }
 }
-
-// Helper function for file size formatting
-function formatFileSize(bytes) {
-  if (bytes === 0) return "0 Bytes";
-  const k = 1024;
-  const sizes = ["Bytes", "KB", "MB", "GB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
-}
-

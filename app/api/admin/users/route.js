@@ -6,6 +6,7 @@ import User from "@/models/User";
 import Book from "@/models/Book";
 import UserBookAccess from "@/models/UserBookAccess";
 import EmailTemplate from "@/models/EmailTemplate";
+import { handleApiError } from "@/libs/apiHelpers";
 import {
   getDefaultEmailTemplate,
   sendBookAccessNotification,
@@ -119,11 +120,7 @@ export async function GET(req) {
       },
     });
   } catch (error) {
-    console.error("Error fetching users:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch users" },
-      { status: 500 }
-    );
+    return handleApiError(error, "Failed to fetch users", "fetching users");
   }
 }
 
@@ -280,10 +277,6 @@ export async function POST(req) {
       { status: isExisting ? 200 : 201 }
     );
   } catch (error) {
-    console.error("Error creating user:", error);
-    return NextResponse.json(
-      { error: "Failed to create user" },
-      { status: 500 }
-    );
+    return handleApiError(error, "Failed to create user", "creating user");
   }
 }

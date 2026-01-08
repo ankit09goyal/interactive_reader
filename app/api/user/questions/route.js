@@ -3,6 +3,7 @@ import { auth } from "@/libs/auth";
 import connectMongo from "@/libs/mongoose";
 import Question from "@/models/Question";
 import UserBookAccess from "@/models/UserBookAccess";
+import { handleApiError } from "@/libs/apiHelpers";
 
 // POST /api/user/questions - Create a new question
 export async function POST(req) {
@@ -76,11 +77,7 @@ export async function POST(req) {
       question: newQuestion.toJSON(),
     });
   } catch (error) {
-    console.error("Error creating question:", error);
-    return NextResponse.json(
-      { error: "Failed to create question" },
-      { status: 500 }
-    );
+    return handleApiError(error, "Failed to create question", "creating question");
   }
 }
 
@@ -174,10 +171,6 @@ export async function GET(req) {
       ),
     });
   } catch (error) {
-    console.error("Error fetching questions:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch questions" },
-      { status: 500 }
-    );
+    return handleApiError(error, "Failed to fetch questions", "fetching questions");
   }
 }

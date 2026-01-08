@@ -7,17 +7,9 @@ import UserBookAccess from "@/models/UserBookAccess";
 import User from "@/models/User";
 import PDFReader from "@/components/PDFReader";
 import EPubReader from "@/components/ePubReader";
+import { transformBook } from "@/libs/bookUtils";
 
 export const dynamic = "force-dynamic";
-
-// Helper function for file size formatting
-function formatFileSize(bytes) {
-  if (bytes === 0) return "0 Bytes";
-  const k = 1024;
-  const sizes = ["Bytes", "KB", "MB", "GB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
-}
 
 // Fetch book with access check
 async function getBookWithAccess(bookId, userId) {
@@ -47,22 +39,11 @@ async function getBookWithAccess(bookId, userId) {
   // Check if user is an admin (either by role or by being the book uploader)
   const user = await User.findById(userId).select("role").lean();
   const isAdmin =
-    user?.role === "admin" ||
-    book.uploadedBy?.toString() === userId;
+    user?.role === "admin" || book.uploadedBy?.toString() === userId;
 
   return {
     book: {
-      _id: book._id.toString(),
-      title: book.title,
-      author: book.author,
-      description: book.description,
-      fileName: book.fileName,
-      filePath: book.filePath,
-      fileSize: book.fileSize,
-      mimeType: book.mimeType,
-      createdAt: book.createdAt?.toISOString(),
-      fileSizeFormatted: formatFileSize(book.fileSize),
-      fileType: book.mimeType === "application/pdf" ? "PDF" : "EPUB",
+      ...transformBook(book),
       uploadedBy: book.uploadedBy?.toString(),
     },
     isAdmin,

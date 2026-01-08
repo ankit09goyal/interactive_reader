@@ -8,6 +8,8 @@ import {
   generateUniqueFilename,
   saveFile,
 } from "@/libs/fileUpload";
+import { transformBook } from "@/libs/bookUtils";
+import { handleApiError } from "@/libs/apiHelpers";
 
 // GET /api/admin/books - List all books uploaded by the current admin
 export async function GET(req) {
@@ -47,14 +49,7 @@ export async function GET(req) {
     ]);
 
     // Transform books to include virtual fields
-    const transformedBooks = books.map((book) => ({
-      ...book,
-      _id: book._id.toString(),
-      uploadedBy: book.uploadedBy?.toString(),
-      createdAt: book.createdAt?.toISOString(),
-      fileSizeFormatted: formatFileSize(book.fileSize),
-      fileType: book.mimeType === "application/pdf" ? "PDF" : "EPUB",
-    }));
+    const transformedBooks = books.map((book) => transformBook(book));
 
     return NextResponse.json({
       books: transformedBooks,
@@ -66,11 +61,7 @@ export async function GET(req) {
       },
     });
   } catch (error) {
-    console.error("Error fetching books:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch books" },
-      { status: 500 }
-    );
+    return handleApiError(error, "Failed to fetch books", "fetching books");
   }
 }
 
@@ -137,20 +128,7 @@ export async function POST(req) {
     });
 
     // Transform book to match the format expected by the frontend
-    const transformedBook = {
-      _id: book._id.toString(),
-      title: book.title,
-      author: book.author,
-      description: book.description,
-      fileName: book.fileName,
-      filePath: book.filePath,
-      fileSize: book.fileSize,
-      mimeType: book.mimeType,
-      uploadedBy: book.uploadedBy?.toString(),
-      createdAt: book.createdAt?.toISOString(),
-      fileSizeFormatted: formatFileSize(book.fileSize),
-      fileType: book.mimeType === "application/pdf" ? "PDF" : "EPUB",
-    };
+    const transformedBook = transformBook(book);
 
     return NextResponse.json(
       {
@@ -159,19 +137,6 @@ export async function POST(req) {
       { status: 201 }
     );
   } catch (error) {
-    console.error("Error uploading book:", error);
-    return NextResponse.json(
-      { error: "Failed to upload book" },
-      { status: 500 }
-    );
+    return handleApiError(error, "Failed to upload book", "uploading book");
   }
-}
-
-// Helper function for file size formatting
-function formatFileSize(bytes) {
-  if (bytes === 0) return "0 Bytes";
-  const k = 1024;
-  const sizes = ["Bytes", "KB", "MB", "GB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
 }
