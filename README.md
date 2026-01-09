@@ -19,6 +19,26 @@ Hey maker 👋 it's Marc from [ShipFast](https://shipfa.st/docs). Let's get your
 -   [🧑‍💻 Discord](https://shipfa.st/dashboard)
 -   [🥇 Leaderboard](https://shipfa.st/leaderboard)
 
+## Testing & Coverage
+
+This project uses [Vitest](https://vitest.dev/) for testing and code coverage.
+
+### Running Tests
+```bash
+npm test              # Run tests once
+npm run test:watch    # Run tests in watch mode
+npm run test:ui       # Run tests with UI
+```
+
+### Code Coverage
+```bash
+npm run test:coverage        # Generate coverage report
+npm run coverage:report      # Generate and show coverage summary
+npm run coverage:open        # Open HTML coverage report in browser
+```
+
+See [COVERAGE.md](./COVERAGE.md) for detailed coverage documentation.
+
 ## Support
 
 Reach out at hello@shipfa.st

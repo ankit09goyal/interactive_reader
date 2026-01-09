@@ -24,7 +24,8 @@ export default defineConfig({
     exclude: ["node_modules", ".next"],
     coverage: {
       provider: "v8",
-      reporter: ["text", "json", "html"],
+      reporter: ["text", "text-summary", "json", "html", "lcov"],
+      reportsDirectory: "./coverage",
       include: [
         "app/**/*.{js,jsx}",
         "components/**/*.{js,jsx}",
@@ -32,21 +33,48 @@ export default defineConfig({
         "models/**/*.js",
       ],
       exclude: [
-        "node_modules",
-        ".next",
-        "__tests__",
+        "node_modules/**",
+        ".next/**",
+        "__tests__/**",
         "**/*.config.js",
+        "**/*.config.*.js",
         "app/**/layout.js", // Layouts are mostly wrappers
+        "app/**/error.js", // Error boundaries
+        "app/**/not-found.js", // Not found pages
+        "app/**/loading.js", // Loading components
         "app/globals.css",
+        "**/*.test.{js,jsx}",
+        "**/*.spec.{js,jsx}",
+        "**/mocks/**",
+        "**/__mocks__/**",
+        "coverage/**",
+        "public/**",
       ],
-      // Start with lower thresholds and increase as coverage improves
+      // Coverage thresholds - increase these as coverage improves
       // Current coverage: ~12% - focus on critical paths first
       thresholds: {
         statements: 10,
         branches: 10,
         functions: 8,
         lines: 10,
+        // Per-file thresholds for critical paths
+        "libs/**/*.js": {
+          statements: 15,
+          branches: 12,
+          functions: 12,
+          lines: 15,
+        },
+        "models/**/*.js": {
+          statements: 15,
+          branches: 12,
+          functions: 12,
+          lines: 15,
+        },
       },
+      // Show all files, even those with 0% coverage
+      all: true,
+      // Skip full coverage for files that don't have tests yet
+      skipFull: false,
     },
     alias: {
       "@": path.resolve(__dirname, "./"),

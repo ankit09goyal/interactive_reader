@@ -10,8 +10,15 @@
     "lint": "next lint",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage",
-    "test:ui": "vitest --ui"
+    "test:coverage:watch": "vitest --coverage",
+    "test:coverage:ui": "vitest --ui --coverage",
+    "coverage": "vitest run --coverage",
+    "coverage:watch": "vitest --coverage",
+    "coverage:report": "vitest run --coverage && echo '\n📊 Coverage report generated in ./coverage/index.html'",
+    "coverage:check": "vitest run --coverage --reporter=verbose",
+    "coverage:open": "open coverage/index.html"
   },
   "dependencies": {
     "@auth/mongodb-adapter": "^3.11.1",
