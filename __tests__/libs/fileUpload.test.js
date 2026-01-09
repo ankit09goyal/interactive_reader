@@ -1,73 +1,33 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import path from "path";
+import * as fileUpload from "@/libs/fileUpload";
+import fs from "fs";
+
+vi.mock("fs", () => ({
+  default: {
+    promises: {
+      mkdir: vi.fn(),
+      writeFile: vi.fn(),
+      unlink: vi.fn(),
+    },
+  },
+}));
 
 describe("FileUpload Library", () => {
-  // Define the constants locally for testing (matches the actual implementation)
-  const ALLOWED_MIME_TYPES = {
-    "application/pdf": ".pdf",
-    "application/epub+zip": ".epub",
-  };
-  const MAX_FILE_SIZE = 50 * 1024 * 1024;
-
-  // Helper functions recreated for testing (matches the actual implementation)
-  const isValidFileType = (mimeType) => {
-    return Object.keys(ALLOWED_MIME_TYPES).includes(mimeType);
-  };
-
-  const isValidFileSize = (size) => {
-    return size > 0 && size <= MAX_FILE_SIZE;
-  };
-
-  const getExtensionFromMimeType = (mimeType) => {
-    return ALLOWED_MIME_TYPES[mimeType] || "";
-  };
-
-  const sanitizeFilename = (filename) => {
-    const basename = path.basename(filename);
-    return basename
-      .replace(/[^a-zA-Z0-9._-]/g, "_")
-      .replace(/_{2,}/g, "_")
-      .toLowerCase();
-  };
-
-  const generateUniqueFilename = (originalFilename) => {
-    const timestamp = Date.now();
-    const sanitized = sanitizeFilename(originalFilename);
-    return `${timestamp}-${sanitized}`;
-  };
-
-  const getUserUploadDir = (userId) => {
-    return path.join(process.cwd(), "public", "uploads", "books", userId);
-  };
-
-  const formatFileSize = (bytes) => {
-    if (bytes === 0) return "0 Bytes";
-    const k = 1024;
-    const sizes = ["Bytes", "KB", "MB", "GB"];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
-  };
-
-  const validateFile = (file) => {
-    if (!file) {
-      return { valid: false, error: "No file provided" };
-    }
-    if (!isValidFileType(file.type)) {
-      return {
-        valid: false,
-        error: "Invalid file type. Only PDF and EPUB files are allowed.",
-      };
-    }
-    if (!isValidFileSize(file.size)) {
-      return {
-        valid: false,
-        error: `File too large. Maximum size is ${formatFileSize(
-          MAX_FILE_SIZE
-        )}.`,
-      };
-    }
-    return { valid: true };
-  };
+  const {
+    ALLOWED_MIME_TYPES,
+    MAX_FILE_SIZE,
+    isValidFileType,
+    isValidFileSize,
+    getExtensionFromMimeType,
+    sanitizeFilename,
+    generateUniqueFilename,
+    getUserUploadDir,
+    validateFile,
+    ensureUploadDir,
+    saveFile,
+    deleteFile,
+  } = fileUpload;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -145,7 +105,6 @@ describe("FileUpload Library", () => {
     });
 
     it("should replace special characters with underscores", () => {
-      // Multiple special chars are consolidated to single underscore
       expect(sanitizeFilename("file name!@#.pdf")).toBe("file_name_.pdf");
     });
 
@@ -159,7 +118,6 @@ describe("FileUpload Library", () => {
 
     it("should remove path components", () => {
       expect(sanitizeFilename("/path/to/file.pdf")).toBe("file.pdf");
-      // Backslashes become underscores on non-Windows systems
       expect(sanitizeFilename("subdir\\file.pdf")).toContain("file.pdf");
     });
   });
@@ -192,29 +150,6 @@ describe("FileUpload Library", () => {
     it("should include process.cwd()", () => {
       const result = getUserUploadDir("user123");
       expect(result).toContain(process.cwd());
-    });
-  });
-
-  describe("formatFileSize", () => {
-    it("should format 0 bytes", () => {
-      expect(formatFileSize(0)).toBe("0 Bytes");
-    });
-
-    it("should format bytes", () => {
-      expect(formatFileSize(500)).toBe("500 Bytes");
-    });
-
-    it("should format kilobytes", () => {
-      expect(formatFileSize(1024)).toBe("1 KB");
-      expect(formatFileSize(2048)).toBe("2 KB");
-    });
-
-    it("should format megabytes", () => {
-      expect(formatFileSize(1024 * 1024)).toBe("1 MB");
-    });
-
-    it("should format with decimals", () => {
-      expect(formatFileSize(1536)).toBe("1.5 KB");
     });
   });
 
@@ -255,6 +190,82 @@ describe("FileUpload Library", () => {
       const result = validateFile(file);
 
       expect(result.valid).toBe(true);
+    });
+  });
+
+  describe("ensureUploadDir", () => {
+    it("should create directory recursively", async () => {
+      fs.promises.mkdir.mockResolvedValue(undefined);
+
+      const userId = "test-user";
+      const result = await ensureUploadDir(userId);
+
+      expect(fs.promises.mkdir).toHaveBeenCalledWith(
+        expect.stringContaining(userId),
+        { recursive: true }
+      );
+      expect(result).toContain(userId);
+    });
+
+    it("should handle error during directory creation", async () => {
+      fs.promises.mkdir.mockRejectedValue(new Error("Permission denied"));
+
+      await expect(ensureUploadDir("test-user")).rejects.toThrow(
+        "Failed to create upload directory"
+      );
+    });
+  });
+
+  describe("saveFile", () => {
+    it("should save file to disk", async () => {
+      fs.promises.mkdir.mockResolvedValue(undefined);
+      fs.promises.writeFile.mockResolvedValue(undefined);
+
+      const buffer = Buffer.from("test");
+      const userId = "test-user";
+      const filename = "test.pdf";
+
+      const result = await saveFile(buffer, userId, filename);
+
+      expect(fs.promises.writeFile).toHaveBeenCalledWith(
+        expect.stringContaining(path.join(userId, filename)),
+        buffer
+      );
+      expect(result).toEqual({
+        filePath: `/uploads/books/${userId}/${filename}`,
+        fullPath: expect.stringContaining(filename),
+      });
+    });
+
+    it("should handle error during file save", async () => {
+      fs.promises.mkdir.mockResolvedValue(undefined);
+      fs.promises.writeFile.mockRejectedValue(new Error("Write failed"));
+
+      const buffer = Buffer.from("test");
+      await expect(saveFile(buffer, "user", "file.pdf")).rejects.toThrow(
+        "Failed to save file"
+      );
+    });
+  });
+
+  describe("deleteFile", () => {
+    it("should delete file from disk", async () => {
+      fs.promises.unlink.mockResolvedValue(undefined);
+
+      const result = await deleteFile("/uploads/file.pdf");
+
+      expect(fs.promises.unlink).toHaveBeenCalledWith(
+        expect.stringContaining("file.pdf")
+      );
+      expect(result).toBe(true);
+    });
+
+    it("should handle error during file deletion", async () => {
+      fs.promises.unlink.mockRejectedValue(new Error("Not found"));
+
+      const result = await deleteFile("/uploads/file.pdf");
+
+      expect(result).toBe(false);
     });
   });
 });
