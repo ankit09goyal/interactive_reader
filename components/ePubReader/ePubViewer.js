@@ -67,6 +67,38 @@ export default function EPubViewer({
         },
       });
 
+      // Inject CSS to wrap tables in scrollable containers
+      rendition.hooks.content.register((contents) => {
+        const document = contents.document;
+        const tables = document.querySelectorAll("table");
+
+        tables.forEach((table) => {
+          // Skip if already wrapped
+          if (
+            table.parentElement?.classList?.contains("table-scroll-wrapper")
+          ) {
+            return;
+          }
+
+          // Create wrapper div
+          const wrapper = document.createElement("div");
+          wrapper.className = "table-scroll-wrapper";
+          wrapper.style.cssText = `
+            display: block;
+            max-height: 70vh;
+            overflow: auto;
+            -webkit-overflow-scrolling: touch;
+            margin: 1em 0;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            border-radius: 4px;
+          `;
+
+          // Insert wrapper before table, then move table into wrapper
+          table.parentNode.insertBefore(wrapper, table);
+          wrapper.appendChild(table);
+        });
+      });
+
       // Apply initial font size
       rendition.themes.fontSize(`${fontSize}px`);
 

@@ -45,6 +45,11 @@ describe("EPubViewer Component", () => {
         fontSize: vi.fn(),
         register: vi.fn(),
       },
+      hooks: {
+        content: {
+          register: vi.fn(),
+        },
+      },
       on: vi.fn(),
       destroy: vi.fn(),
     };
@@ -68,10 +73,15 @@ describe("EPubViewer Component", () => {
     const mockDestroy = vi.fn();
     const mockRendition1 = {
       themes: { default: vi.fn(), fontSize: vi.fn(), register: vi.fn() },
+      hooks: { content: { register: vi.fn() } },
       on: vi.fn(),
       destroy: mockDestroy,
     };
-    const mockRendition2 = { ...mockRendition1, destroy: vi.fn() };
+    const mockRendition2 = {
+      ...mockRendition1,
+      hooks: { content: { register: vi.fn() } },
+      destroy: vi.fn(),
+    };
 
     mockCreateRendition
       .mockReturnValueOnce(mockRendition1)
@@ -106,6 +116,7 @@ describe("EPubViewer Component", () => {
     const mockFontSizeFn = vi.fn();
     const mockRendition = {
       themes: { default: vi.fn(), fontSize: mockFontSizeFn, register: vi.fn() },
+      hooks: { content: { register: vi.fn() } },
       on: vi.fn(),
       destroy: vi.fn(),
     };
@@ -142,6 +153,7 @@ describe("EPubViewer Component", () => {
     const mockPrev = vi.fn();
     const mockRendition = {
       themes: { default: vi.fn(), fontSize: vi.fn(), register: vi.fn() },
+      hooks: { content: { register: vi.fn() } },
       on: vi.fn().mockImplementation((event, cb) => {
         if (event === "keyup") keyupCallback = cb;
       }),
@@ -172,5 +184,122 @@ describe("EPubViewer Component", () => {
       keyupCallback({ key: "ArrowLeft" });
     });
     expect(mockPrev).toHaveBeenCalled();
+  });
+
+  it("registers content hook for table scroll wrapping", () => {
+    const mockContentRegister = vi.fn();
+    const mockRendition = {
+      themes: { default: vi.fn(), fontSize: vi.fn(), register: vi.fn() },
+      hooks: { content: { register: mockContentRegister } },
+      on: vi.fn(),
+      destroy: vi.fn(),
+    };
+    mockCreateRendition.mockReturnValue(mockRendition);
+
+    render(
+      <EPubViewer
+        book={mockBook}
+        isLoading={false}
+        error={null}
+        createRendition={mockCreateRendition}
+        fontSize={16}
+      />
+    );
+
+    // Verify the content hook was registered for table wrapping
+    expect(mockContentRegister).toHaveBeenCalled();
+    expect(mockContentRegister).toHaveBeenCalledWith(expect.any(Function));
+  });
+
+  it("wraps tables in scrollable containers when content hook is called", () => {
+    let contentCallback;
+    const mockContentRegister = vi.fn().mockImplementation((cb) => {
+      contentCallback = cb;
+    });
+    const mockRendition = {
+      themes: { default: vi.fn(), fontSize: vi.fn(), register: vi.fn() },
+      hooks: { content: { register: mockContentRegister } },
+      on: vi.fn(),
+      destroy: vi.fn(),
+    };
+    mockCreateRendition.mockReturnValue(mockRendition);
+
+    render(
+      <EPubViewer
+        book={mockBook}
+        isLoading={false}
+        error={null}
+        createRendition={mockCreateRendition}
+        fontSize={16}
+      />
+    );
+
+    // Simulate the content hook being called with a mock document containing a table
+    const mockTable = document.createElement("table");
+    const mockParent = document.createElement("div");
+    mockParent.appendChild(mockTable);
+
+    const mockContents = {
+      document: {
+        querySelectorAll: vi.fn().mockReturnValue([mockTable]),
+        createElement: vi.fn().mockImplementation((tag) => {
+          const el = document.createElement(tag);
+          return el;
+        }),
+      },
+    };
+
+    // Call the content callback
+    contentCallback(mockContents);
+
+    // Verify table was wrapped
+    expect(
+      mockTable.parentElement.classList.contains("table-scroll-wrapper")
+    ).toBe(true);
+    expect(mockTable.parentElement.style.maxHeight).toBe("70vh");
+    expect(mockTable.parentElement.style.overflow).toBe("auto");
+  });
+
+  it("does not re-wrap already wrapped tables", () => {
+    let contentCallback;
+    const mockContentRegister = vi.fn().mockImplementation((cb) => {
+      contentCallback = cb;
+    });
+    const mockRendition = {
+      themes: { default: vi.fn(), fontSize: vi.fn(), register: vi.fn() },
+      hooks: { content: { register: mockContentRegister } },
+      on: vi.fn(),
+      destroy: vi.fn(),
+    };
+    mockCreateRendition.mockReturnValue(mockRendition);
+
+    render(
+      <EPubViewer
+        book={mockBook}
+        isLoading={false}
+        error={null}
+        createRendition={mockCreateRendition}
+        fontSize={16}
+      />
+    );
+
+    // Create a table that's already wrapped
+    const mockWrapper = document.createElement("div");
+    mockWrapper.classList.add("table-scroll-wrapper");
+    const mockTable = document.createElement("table");
+    mockWrapper.appendChild(mockTable);
+
+    const mockContents = {
+      document: {
+        querySelectorAll: vi.fn().mockReturnValue([mockTable]),
+        createElement: vi.fn(),
+      },
+    };
+
+    // Call the content callback
+    contentCallback(mockContents);
+
+    // Verify createElement was not called (no new wrapper created)
+    expect(mockContents.document.createElement).not.toHaveBeenCalled();
   });
 });
