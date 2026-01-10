@@ -7,6 +7,7 @@ import Link from "next/link";
 import Image from "next/image";
 import ButtonSignin from "./ButtonSignin";
 import ButtonLogout from "./ButtonLogout";
+import ButtonAccountFree from "./ButtonAccountFree";
 import logo from "@/app/icon.png";
 import config from "@/config";
 import icons from "@/libs/icons";
@@ -82,7 +83,9 @@ const Header = () => {
               onClick={() => setIsOpen(true)}
             >
               <span className="sr-only">Open main menu</span>
-              <span className="w-6 h-6 text-base-content">{icons.hamburger}</span>
+              <span className="w-6 h-6 text-base-content">
+                {icons.hamburger}
+              </span>
             </button>
           </div>
         )}
@@ -114,7 +117,7 @@ const Header = () => {
         {/* Account button (only shown when logged in) */}
         {isAuthenticated && (
           <div className="flex justify-end lg:flex-1">
-            <ButtonLogout />
+            <ButtonAccountFree />
           </div>
         )}
       </nav>
