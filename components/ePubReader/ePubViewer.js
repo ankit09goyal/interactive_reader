@@ -323,6 +323,9 @@ export default function EPubViewer({
   useEffect(() => {
     if (renditionRef.current) {
       try {
+        // Save current location before applying settings changes
+        const currentCfi = renditionRef.current.location?.start?.cfi;
+
         // Use epubjs themes.fontSize() for font size
         renditionRef.current.themes.fontSize(`${fontSize}px`);
 
@@ -346,6 +349,20 @@ export default function EPubViewer({
 
         // Safely call resize only if manager is ready
         safeResize(renditionRef.current);
+
+        // Restore position after settings change and resize
+        // Use a small delay to allow the reflow to complete
+        if (currentCfi && isDisplayedRef.current) {
+          setTimeout(() => {
+            try {
+              if (renditionRef.current) {
+                renditionRef.current.display(currentCfi);
+              }
+            } catch (e) {
+              // Ignore errors during position restoration
+            }
+          }, 50);
+        }
       } catch (e) {
         // Ignore errors if rendition is not ready
       }
