@@ -55,9 +55,9 @@ function HighlightCard({
           : ""
       }`}
     >
-      <div className="p-3 border border-base-300 rounded-lg">
+      <div className="p-3 border border-base-content/15 rounded-lg">
         {/* header */}
-        <div className="flex justify-between border-b border-base-300 pb-2">
+        <div className="flex justify-between border-b border-base-content/10 pb-2">
           <p className="text-xs font-medium mb-1 text-base-content/50">
             HIGHLIGHT
           </p>
@@ -114,7 +114,7 @@ function HighlightCard({
         {/* notes */}
         {highlight && highlight.notes && (
           <>
-            <div className="pt-4 pb-4 border-b border-t border-base-300">
+            <div className="pt-4 pb-4 border-b border-t border-base-content/10">
               <p className="text-xs font-medium mb-1 text-base-content/50">
                 NOTES
               </p>

@@ -108,7 +108,7 @@ function QuestionCard({
   const hasLocation = isEPub ? question.epubCfi : question.pageNumber;
 
   return (
-    <div className={`rounded-lg p-3 border border-base-300`}>
+    <div className={`rounded-lg p-3 border border-base-content/15`}>
       {/* Question header with delete button */}
       <div className="flex items-start justify-between gap-2 mb-2 ">
         <p className="text-sm font-medium line-clamp-2 flex-1">
@@ -126,7 +126,7 @@ function QuestionCard({
       </div>
       {/* Answer (if exists) */}
       {question.answer ? (
-        <div className="mt-2 mb-2 pb-4 pt-2 border-b border-base-300">
+        <div className="mt-2 mb-2 pb-4 pt-2 border-b border-base-content/10">
           <p className="text-xs text-base-content/60 mb-1">Answer:</p>
           <p
             className={`text-sm text-base-content/80 ${
@@ -145,7 +145,7 @@ function QuestionCard({
           )}
         </div>
       ) : (
-        <div className="mt-2 mb-2 pb-4 pt-2 border-b border-base-300">
+        <div className="mt-2 mb-2 pb-4 pt-2 border-b border-base-content/10">
           <p className="text-xs text-base-content/60 mb-1">Not answered yet.</p>
         </div>
       )}
@@ -160,7 +160,7 @@ function QuestionCard({
       </div>
 
       {question.selectedText && !isPublic && hasLocation && (
-        <div className="flex justify-between mt-2 text-xs pt-4 border-t border-base-300">
+        <div className="flex justify-between mt-2 text-xs pt-4 border-t border-base-content/10">
           <span className="text-xs text-base-content/50">
             {new Date(question.createdAt).toLocaleDateString()}
           </span>
