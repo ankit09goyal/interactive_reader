@@ -14,6 +14,7 @@ export function useEPubQuestionHighlights({
   rendition,
   refreshTrigger = 0,
   onHighlightClick,
+  fontSize = 16,
 }) {
   const [highlights, setHighlights] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -220,7 +221,7 @@ export function useEPubQuestionHighlights({
         }
       });
     };
-  }, [highlights, onHighlightClick]);
+  }, [highlights, onHighlightClick, fontSize]);
 
   return { highlights, isLoading };
 }

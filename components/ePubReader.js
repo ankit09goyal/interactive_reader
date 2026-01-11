@@ -148,6 +148,7 @@ export default function EPubReader({
       setShowHighlightsSidebar(true);
       setHighlightedNoteClicked((prev) => prev + 1);
     },
+    fontSize,
   });
 
   // Question highlights (clickable)
@@ -162,6 +163,7 @@ export default function EPubReader({
       setShowQuestionsSidebar(true);
       setHighlightedTextClicked((prev) => prev + 1);
     },
+    fontSize,
   });
 
   // Handle asking question from selection menu

@@ -12,6 +12,7 @@ export function useEPubHighlights({
   rendition,
   refreshTrigger = 0,
   onHighlightClick,
+  fontSize = 16,
 }) {
   const [highlights, setHighlights] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -275,7 +276,7 @@ export function useEPubHighlights({
         }
       });
     };
-  }, [rendition, highlights]);
+  }, [rendition, highlights, fontSize]);
 
   /**
    * Create a new highlight

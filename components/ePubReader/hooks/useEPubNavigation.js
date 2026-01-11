@@ -22,6 +22,7 @@ export function useEPubNavigation({
   const [fontSize, setFontSize] = useState(initialFontSize);
   const [atStart, setAtStart] = useState(true);
   const [atEnd, setAtEnd] = useState(false);
+  const [fontSizeInitialized, setFontSizeInitialized] = useState(false);
 
   // Refs for debounced saving
   const saveLocationTimeoutRef = useRef(null);
@@ -49,6 +50,16 @@ export function useEPubNavigation({
   useEffect(() => {
     renditionRef.current = rendition;
   }, [rendition]);
+
+  // Sync font size when preferences are loaded (initialFontSize changes from API)
+  useEffect(() => {
+    if (preferencesLoaded && !fontSizeInitialized && initialFontSize !== 16) {
+      setFontSize(initialFontSize);
+      setFontSizeInitialized(true);
+    } else if (preferencesLoaded && !fontSizeInitialized) {
+      setFontSizeInitialized(true);
+    }
+  }, [preferencesLoaded, initialFontSize, fontSizeInitialized]);
 
   // Save pending preferences before unmount
   useEffect(() => {

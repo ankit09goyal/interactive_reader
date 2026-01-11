@@ -1,6 +1,67 @@
 "use client";
 
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef } from "react";
+
+// Unique ID for the font size style element
+const FONT_SIZE_STYLE_ID = "epub-custom-font-size";
+
+/**
+ * Helper function to inject font size CSS into the ePub document
+ * Uses !important to override any inline or internal CSS
+ */
+function injectFontSizeCSS(document, fontSize) {
+  // Remove existing font size style if present
+  const existingStyle = document.getElementById(FONT_SIZE_STYLE_ID);
+  if (existingStyle) {
+    existingStyle.remove();
+  }
+
+  // Create new style element with font size rules
+  const style = document.createElement("style");
+  style.id = FONT_SIZE_STYLE_ID;
+  style.textContent = `
+    /* Base font size for body text elements - excludes headings */
+    body, p, div, span, a, li, td, th, dd, dt, figcaption, blockquote, cite, q, em, strong, b, i, u, s,
+    .calibre, .calibre1, .calibre2, .calibre3, .calibre4, .calibre5,
+    [class*="calibre"], [class*="text"], [class*="para"], [class*="body"] {
+      font-size: ${fontSize}px !important;
+    }
+    /* Heading hierarchy with scaled sizes - use high specificity */
+    h1 > span, h1[class], [class] h1, div h1, section h1, article h1 { font-size: ${
+      fontSize * 2
+    }px !important; }
+    h2 > span, h2[class], [class] h2, div h2, section h2, article h2 { font-size: ${
+      fontSize * 1.4
+    }px !important; }
+    h3 > span, h3[class], [class] h3, div h3, section h3, article h3 { font-size: ${
+      fontSize * 1.3
+    }px !important; }
+    h4 > span, h4[class], [class] h4, div h4, section h4, article h4 { font-size: ${
+      fontSize * 1.2
+    }px !important; }
+    h5 > span, h5[class], [class] h5, div h5, section h5, article h5 { font-size: ${
+      fontSize * 1.1
+    }px !important; }
+    h6 > span, h6[class], [class] h6, div h6, section h6, article h6 { font-size: ${fontSize}px !important; }
+    
+    /* Table styles to prevent hiding */
+    table {
+      width: 100% !important;
+      max-width: 100% !important;
+      table-layout: auto !important;
+      margin-left: 0 !important;
+      margin-right: 0 !important;
+    }
+    .table-scroll-wrapper {
+      width: 100% !important;
+      max-width: 100% !important;
+      margin-left: 0 !important;
+      margin-right: 0 !important;
+      overflow-x: auto !important;
+    }
+  `;
+  document.head.appendChild(style);
+}
 
 /**
  * ePubViewer - Component that renders the ePub content
@@ -17,6 +78,12 @@ export default function EPubViewer({
   const renditionRef = useRef(null);
   const isInitializedRef = useRef(false);
   const currentBookRef = useRef(null);
+  const fontSizeRef = useRef(fontSize);
+
+  // Keep fontSizeRef in sync
+  useEffect(() => {
+    fontSizeRef.current = fontSize;
+  }, [fontSize]);
 
   // Create rendition only once when book is loaded
   useEffect(() => {
@@ -58,18 +125,20 @@ export default function EPubViewer({
           "line-height": "1.6 !important",
           padding: "20px !important",
         },
-        "p, div, span": {
-          "font-size": "inherit",
-        },
         a: {
           color: "inherit !important",
           "text-decoration": "underline !important",
         },
       });
 
-      // Inject CSS to wrap tables in scrollable containers
+      // Inject CSS for tables and font size on content load
       rendition.hooks.content.register((contents) => {
         const document = contents.document;
+
+        // Inject font size CSS
+        injectFontSizeCSS(document, fontSizeRef.current);
+
+        // Wrap tables in scrollable containers
         const tables = document.querySelectorAll("table");
 
         tables.forEach((table) => {
@@ -85,12 +154,17 @@ export default function EPubViewer({
           wrapper.className = "table-scroll-wrapper";
           wrapper.style.cssText = `
             display: block;
+            width: 100%;
+            max-width: 100%;
             max-height: 70vh;
             overflow: auto;
             -webkit-overflow-scrolling: touch;
             margin: 1em 0;
+            margin-left: 0;
+            margin-right: 0;
             border: 1px solid rgba(0, 0, 0, 0.1);
             border-radius: 4px;
+            box-sizing: border-box;
           `;
 
           // Insert wrapper before table, then move table into wrapper
@@ -98,9 +172,6 @@ export default function EPubViewer({
           wrapper.appendChild(table);
         });
       });
-
-      // Apply initial font size
-      rendition.themes.fontSize(`${fontSize}px`);
 
       // Register custom theme for highlights
       rendition.themes.register("highlight", {
@@ -143,7 +214,13 @@ export default function EPubViewer({
   useEffect(() => {
     if (renditionRef.current && fontSize) {
       try {
-        renditionRef.current.themes.fontSize(`${fontSize}px`);
+        // Get all loaded contents (iframes) and update font size in each
+        const contents = renditionRef.current.getContents();
+        contents.forEach((content) => {
+          if (content.document) {
+            injectFontSizeCSS(content.document, fontSize);
+          }
+        });
       } catch (e) {
         // Ignore errors if rendition is not ready
       }
