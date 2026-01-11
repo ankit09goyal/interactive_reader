@@ -562,7 +562,6 @@ export default function EPubReader({
       <EPubToolbar
         title={title}
         backHref={backHref}
-        currentChapter={currentChapter}
         isLoading={isLoading}
         fontSize={pageViewSettings.fontSize}
         showTOC={showTOC}

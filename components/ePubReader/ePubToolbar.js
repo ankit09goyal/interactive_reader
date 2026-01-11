@@ -10,7 +10,6 @@ import icons from "@/libs/icons";
 export default function EPubToolbar({
   title,
   backHref = "/dashboard",
-  currentChapter,
   isLoading,
   fontSize,
   showTOC,
@@ -31,7 +30,7 @@ export default function EPubToolbar({
   atEnd,
 }) {
   return (
-    <div className="toolbar flex flex-row justify-between p-2 bg-base-200 border-b border-base-300 gap-2 flex-shrink-0">
+    <div className="toolbar flex flex-row items-center justify-between p-2 bg-base-200 border-b border-base-300 gap-2 flex-shrink-0">
       {/* Left: Back button and title */}
       <div className="basis-auto items-center min-w-0 ">
         <Link
@@ -54,20 +53,13 @@ export default function EPubToolbar({
         </button>
       </div>
 
-      {/* Center: Navigation */}
-      <div className="basis-auto items-center gap-1">
-        <div className="">
-          <h1 className="font-semibold text-sm truncate">{title}</h1>
-          {currentChapter && (
-            <p className="text-xs text-base-content/60 truncate">
-              {currentChapter.label}
-            </p>
-          )}
-        </div>
+      {/* Center: Title */}
+      <div className="">
+        <h1 className="font-semibold text-sm truncate">{title}</h1>
       </div>
 
       {/* Right: Font size, TOC, and sidebar controls */}
-      <div className="items-center gap-1 basis-auto">
+      <div className="">
         <button
           onClick={onPrevPage}
           disabled={isLoading || atStart}
@@ -89,7 +81,7 @@ export default function EPubToolbar({
         {bookId && (
           <button
             onClick={onToggleQuestionsSidebar}
-            className={`btn btn-ghost btn-sm btn-square ${
+            className={`btn btn-ghost btn-sm btn-square ml-2 ${
               showQuestionsSidebar ? "bg-primary/20" : ""
             }`}
             title="Questions & Answers"
@@ -102,7 +94,7 @@ export default function EPubToolbar({
         {bookId && (
           <button
             onClick={onToggleHighlightsSidebar}
-            className={`btn btn-ghost btn-sm btn-square ${
+            className={`btn btn-ghost btn-sm btn-square ml-2 ${
               showHighlightsSidebar ? "bg-primary/20" : ""
             }`}
             title="Highlights & Notes"
@@ -114,7 +106,7 @@ export default function EPubToolbar({
         {/* Settings Sidebar toggle */}
         <button
           onClick={onToggleSettingsSidebar}
-          className={`btn btn-ghost btn-sm btn-square ${
+          className={`btn btn-ghost btn-sm btn-square ml-2 ${
             showSettingsSidebar ? "bg-primary/20" : ""
           }`}
           title="Page View Settings"

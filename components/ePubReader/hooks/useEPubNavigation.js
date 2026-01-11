@@ -18,7 +18,6 @@ export function useEPubNavigation({
   onFontSizeChange,
 }) {
   const [currentLocation, setCurrentLocation] = useState(null);
-  const [currentChapter, setCurrentChapter] = useState(null);
   const [fontSize, setFontSize] = useState(initialFontSize);
   const [atStart, setAtStart] = useState(true);
   const [atEnd, setAtEnd] = useState(false);
@@ -198,12 +197,6 @@ export function useEPubNavigation({
       const cfi = location.start?.cfi;
       setCurrentLocation(cfi);
 
-      // Determine current chapter from TOC
-      if (toc.length > 0 && location.start?.href) {
-        const chapter = findChapterByHref(toc, location.start.href);
-        setCurrentChapter(chapter);
-      }
-
       // Check if at start or end
       setAtStart(location.atStart || false);
       setAtEnd(location.atEnd || false);
@@ -229,28 +222,6 @@ export function useEPubNavigation({
       }
     };
   }, [rendition, toc, saveLocation, onLocationChange]);
-
-  /**
-   * Find chapter by href in TOC
-   */
-  const findChapterByHref = (tocItems, href) => {
-    for (const item of tocItems) {
-      // Check if href matches (may need to handle anchors)
-      const itemHref = item.href?.split("#")[0];
-      const targetHref = href?.split("#")[0];
-
-      if (itemHref === targetHref) {
-        return item;
-      }
-
-      // Check subitems
-      if (item.subitems?.length > 0) {
-        const found = findChapterByHref(item.subitems, href);
-        if (found) return found;
-      }
-    }
-    return null;
-  };
 
   /**
    * Go to next page
@@ -343,7 +314,6 @@ export function useEPubNavigation({
 
   return {
     currentLocation,
-    currentChapter,
     fontSize,
     atStart,
     atEnd,

@@ -19,7 +19,6 @@ vi.mock("@/libs/icons", () => ({
 describe("EPubToolbar Component", () => {
   const defaultProps = {
     title: "Test ePub",
-    currentChapter: { label: "Chapter 1" },
     isLoading: false,
     fontSize: 16,
     showTOC: false,
@@ -39,10 +38,9 @@ describe("EPubToolbar Component", () => {
     atEnd: false,
   };
 
-  it("renders title and chapter info", () => {
+  it("renders title", () => {
     render(<EPubToolbar {...defaultProps} />);
     expect(screen.getByText("Test ePub")).toBeInTheDocument();
-    expect(screen.getByText("Chapter 1")).toBeInTheDocument();
   });
 
   it("handles navigation", () => {
