@@ -18,20 +18,14 @@ export default function EPubTOC({
   return (
     <div className="fixed inset-y-0 left-0 z-50 flex">
       {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/30"
-        onClick={onClose}
-      />
+      <div className="fixed inset-0 bg-black/30" onClick={onClose} />
 
       {/* Sidebar */}
-      <div className="relative w-80 max-w-[80vw] bg-base-100 shadow-xl flex flex-col h-full">
+      <div className="relative w-150 max-w-[80vw] bg-base-100 shadow-xl flex flex-col h-full">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-base-300">
           <h2 className="font-semibold text-lg">Table of Contents</h2>
-          <button
-            onClick={onClose}
-            className="btn btn-ghost btn-sm btn-square"
-          >
+          <button onClick={onClose} className="btn btn-ghost btn-sm btn-square">
             <svg
               xmlns="http://www.w3.org/2000/svg"
               className="h-5 w-5"
@@ -97,7 +91,7 @@ function TOCList({ items, currentChapter, onNavigate, level = 0 }) {
 function TOCItem({ item, currentChapter, onNavigate, level }) {
   const [isExpanded, setIsExpanded] = useState(true);
   const hasChildren = item.subitems && item.subitems.length > 0;
-  
+
   // Check if this item is the current chapter
   const isActive = currentChapter?.href === item.href;
 
@@ -116,9 +110,7 @@ function TOCItem({ item, currentChapter, onNavigate, level }) {
     <li>
       <div
         className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors ${
-          isActive
-            ? "bg-primary/20 text-primary"
-            : "hover:bg-base-200"
+          isActive ? "bg-primary/20 text-primary" : "hover:bg-base-200"
         }`}
         onClick={handleClick}
       >
@@ -150,7 +142,7 @@ function TOCItem({ item, currentChapter, onNavigate, level }) {
         )}
 
         {/* Item label */}
-        <span className="text-sm truncate flex-1">{item.label}</span>
+        <span className="text-sm text-wrap flex-1">{item.label}</span>
       </div>
 
       {/* Children */}
@@ -165,4 +157,3 @@ function TOCItem({ item, currentChapter, onNavigate, level }) {
     </li>
   );
 }
-

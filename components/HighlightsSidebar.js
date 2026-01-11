@@ -181,10 +181,7 @@ function HighlightsList({
   return (
     <div className="space-y-5">
       {highlights.map((highlight) => (
-        <div
-          key={highlight._id}
-          className={`rounded-lg p-3 border border-base-300`}
-        >
+        <div key={highlight._id} className={`rounded-lg`}>
           <HighlightCard
             highlight={highlight}
             onHighlightClick={onHighlightClick}
@@ -317,4 +314,3 @@ export default function HighlightsSidebar({
     </div>
   );
 }
-
