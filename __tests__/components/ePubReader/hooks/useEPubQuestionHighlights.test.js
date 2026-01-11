@@ -20,11 +20,18 @@ describe("useEPubQuestionHighlights", () => {
       add: vi.fn(),
       remove: vi.fn(),
     },
+    getContents: vi.fn().mockReturnValue([]),
+    getRange: vi.fn().mockReturnValue(null),
+    on: vi.fn(),
+    off: vi.fn(),
   };
 
   beforeEach(() => {
     vi.clearAllMocks();
     useSession.mockReturnValue({ data: { user: { id: "user-1" } } });
+    // Reset mock return values
+    mockRendition.getContents.mockReturnValue([]);
+    mockRendition.getRange.mockReturnValue(null);
   });
 
   it("should fetch and filter question highlights", async () => {
@@ -144,5 +151,133 @@ describe("useEPubQuestionHighlights", () => {
     expect(consoleErrorSpy).toHaveBeenCalled();
 
     consoleErrorSpy.mockRestore();
+  });
+
+  it("should register event listeners for page display", async () => {
+    apiClient.get.mockResolvedValue({
+      myQuestions: [
+        {
+          _id: "q1",
+          selectedText: "text",
+          epubCfiRange: "cfi",
+          userId: "user-1",
+        },
+      ],
+    });
+
+    const { result } = renderHook(() =>
+      useEPubQuestionHighlights({ bookId: "book-1", rendition: mockRendition })
+    );
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    // Should register event listeners for question icons
+    expect(mockRendition.on).toHaveBeenCalledWith(
+      "rendered",
+      expect.any(Function)
+    );
+    expect(mockRendition.on).toHaveBeenCalledWith(
+      "displayed",
+      expect.any(Function)
+    );
+  });
+
+  it("should add question icons when content is available", async () => {
+    const mockDoc = {
+      querySelector: vi.fn().mockReturnValue(null),
+      createElement: vi.fn().mockReturnValue({
+        className: "",
+        setAttribute: vi.fn(),
+        addEventListener: vi.fn(),
+        innerHTML: "",
+        title: "",
+      }),
+    };
+
+    const mockRange = {
+      cloneRange: vi.fn().mockReturnValue({
+        collapse: vi.fn(),
+        insertNode: vi.fn(),
+      }),
+    };
+
+    mockRendition.getContents.mockReturnValue([{ document: mockDoc }]);
+    mockRendition.getRange.mockReturnValue(mockRange);
+
+    apiClient.get.mockResolvedValue({
+      myQuestions: [
+        {
+          _id: "q1",
+          selectedText: "test text",
+          epubCfiRange: "cfi-range",
+          userId: "user-1",
+        },
+      ],
+    });
+
+    const { result } = renderHook(() =>
+      useEPubQuestionHighlights({
+        bookId: "book-1",
+        rendition: mockRendition,
+        onHighlightClick: vi.fn(),
+      })
+    );
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    // Wait for the timeout to add icons
+    await new Promise((resolve) => setTimeout(resolve, 250));
+
+    // Should have tried to create the question icon
+    expect(mockDoc.createElement).toHaveBeenCalledWith("span");
+  });
+
+  it("should cleanup icons and event listeners on unmount", async () => {
+    const mockDoc = {
+      querySelectorAll: vi.fn().mockReturnValue([
+        { remove: vi.fn() },
+        { remove: vi.fn() },
+      ]),
+    };
+
+    mockRendition.getContents.mockReturnValue([{ document: mockDoc }]);
+
+    apiClient.get.mockResolvedValue({
+      myQuestions: [
+        {
+          _id: "q1",
+          selectedText: "text",
+          epubCfiRange: "cfi",
+          userId: "user-1",
+        },
+      ],
+    });
+
+    const { result, unmount } = renderHook(() =>
+      useEPubQuestionHighlights({ bookId: "book-1", rendition: mockRendition })
+    );
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    unmount();
+
+    // Should remove event listeners
+    expect(mockRendition.off).toHaveBeenCalledWith(
+      "rendered",
+      expect.any(Function)
+    );
+    expect(mockRendition.off).toHaveBeenCalledWith(
+      "displayed",
+      expect.any(Function)
+    );
+
+    // Should remove annotations
+    expect(mockRendition.annotations.remove).toHaveBeenCalled();
   });
 });
