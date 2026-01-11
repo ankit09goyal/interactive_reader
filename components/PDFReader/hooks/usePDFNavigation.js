@@ -148,8 +148,10 @@ export function usePDFNavigation({
   useEffect(() => {
     const handleKeyDown = (e) => {
       // Don't handle keys if modal is open
-      if (showQuestionModal || showAdminCreateModal || showSidebar) {
-        toast.error("To use keyboard navigation, please close the modal first");
+      if (showSidebar && !showQuestionModal && !showAdminCreateModal) {
+        toast.error(
+          "To use keyboard navigation, please close the question sidebar first"
+        );
         return;
       }
       switch (e.key) {
