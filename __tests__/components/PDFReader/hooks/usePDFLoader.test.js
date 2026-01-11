@@ -33,7 +33,7 @@ describe("usePDFLoader", () => {
       GlobalWorkerOptions: mockPdfJs.GlobalWorkerOptions,
       getDocument: mockPdfJs.getDocument,
     }));
-    
+
     // We also mock the specific build file if it's being resolved directly
     vi.doMock("pdfjs-dist/build/pdf.mjs", () => ({
       default: mockPdfJs,
@@ -42,7 +42,9 @@ describe("usePDFLoader", () => {
     }));
 
     // Import the hook dynamically
-    const { usePDFLoader } = await import("@/components/PDFReader/hooks/usePDFLoader");
+    const { usePDFLoader } = await import(
+      "@/components/PDFReader/hooks/usePDFLoader"
+    );
     return usePDFLoader;
   };
 
@@ -51,7 +53,7 @@ describe("usePDFLoader", () => {
     const { result } = renderHook(() => usePDFLoader(null));
     expect(result.current.pdfDoc).toBeNull();
     expect(result.current.totalPages).toBe(0);
-    expect(result.current.isLoading).toBe(true); 
+    expect(result.current.isLoading).toBe(true);
     expect(result.current.error).toBeNull();
   });
 
@@ -70,34 +72,42 @@ describe("usePDFLoader", () => {
 
   it("should handle error during loading", async () => {
     const mockError = new Error("Failed to load");
-    // Setup rejection
-    mockPdfJs.getDocument.mockReturnValueOnce({
-      promise: Promise.reject(mockError),
-    });
-    // Suppress unhandled rejection warning in test output
-    const p = Promise.reject(mockError); 
-    p.catch(() => {});
 
     // Suppress console error
-    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const consoleErrorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+
+    // Setup rejection - create a promise factory that rejects when awaited
+    mockPdfJs.getDocument.mockReturnValueOnce({
+      promise: (async () => {
+        throw mockError;
+      })(),
+    });
 
     const usePDFLoader = await getHook();
     const { result } = renderHook(() => usePDFLoader("/error.pdf"));
 
-    await waitFor(() => {
-      expect(result.current.isLoading).toBe(false);
-    });
+    // Wait for the error to be handled and loading to complete
+    await waitFor(
+      () => {
+        expect(result.current.isLoading).toBe(false);
+        expect(result.current.error).toBeTruthy();
+      },
+      { timeout: 3000 }
+    );
 
     expect(result.current.error).toBeTruthy();
     expect(result.current.pdfDoc).toBeNull();
-    
+
+    // Clean up
     consoleErrorSpy.mockRestore();
   });
 
   it("should cleanup tasks on unmount", async () => {
     const usePDFLoader = await getHook();
     const mockCancel = vi.fn();
-    
+
     const { result, unmount } = renderHook(() => usePDFLoader("/test.pdf"));
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));

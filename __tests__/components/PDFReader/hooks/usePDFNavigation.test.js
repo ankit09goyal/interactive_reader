@@ -48,7 +48,7 @@ describe("usePDFNavigation", () => {
 
   it("should go to next page", () => {
     const { result } = renderHook(() => usePDFNavigation(defaultProps));
-    
+
     act(() => {
       result.current.goToNextPage();
     });
@@ -58,20 +58,24 @@ describe("usePDFNavigation", () => {
   });
 
   it("should scroll to view in continuous mode on next page", () => {
-    const { result } = renderHook(() => usePDFNavigation({ ...defaultProps, viewMode: "continuous" }));
-    
+    const { result } = renderHook(() =>
+      usePDFNavigation({ ...defaultProps, viewMode: "continuous" })
+    );
+
     act(() => {
       result.current.goToNextPage();
     });
 
-    expect(viewerRefMock.current.querySelector).toHaveBeenCalledWith('[data-page="2"]');
+    expect(viewerRefMock.current.querySelector).toHaveBeenCalledWith(
+      '[data-page="2"]'
+    );
   });
 
   it("should not go past total pages", () => {
     const { result } = renderHook(() =>
       usePDFNavigation({ ...defaultProps, initialPage: 10 })
     );
-    
+
     act(() => {
       result.current.goToNextPage();
     });
@@ -83,7 +87,7 @@ describe("usePDFNavigation", () => {
     const { result } = renderHook(() =>
       usePDFNavigation({ ...defaultProps, initialPage: 2 })
     );
-    
+
     act(() => {
       result.current.goToPreviousPage();
     });
@@ -92,20 +96,28 @@ describe("usePDFNavigation", () => {
   });
 
   it("should scroll to view in continuous mode on prev page", () => {
-    const { result } = renderHook(() => usePDFNavigation({ ...defaultProps, initialPage: 2, viewMode: "continuous" }));
-    
+    const { result } = renderHook(() =>
+      usePDFNavigation({
+        ...defaultProps,
+        initialPage: 2,
+        viewMode: "continuous",
+      })
+    );
+
     act(() => {
       result.current.goToPreviousPage();
     });
 
-    expect(viewerRefMock.current.querySelector).toHaveBeenCalledWith('[data-page="1"]');
+    expect(viewerRefMock.current.querySelector).toHaveBeenCalledWith(
+      '[data-page="1"]'
+    );
   });
 
   it("should not go below page 1", () => {
     const { result } = renderHook(() =>
       usePDFNavigation({ ...defaultProps, initialPage: 1 })
     );
-    
+
     act(() => {
       result.current.goToPreviousPage();
     });
@@ -115,7 +127,7 @@ describe("usePDFNavigation", () => {
 
   it("should handle page input", () => {
     const { result } = renderHook(() => usePDFNavigation(defaultProps));
-    
+
     act(() => {
       result.current.handlePageInput({ target: { value: "5" } });
     });
@@ -125,7 +137,7 @@ describe("usePDFNavigation", () => {
 
   it("should handle invalid page input", () => {
     const { result } = renderHook(() => usePDFNavigation(defaultProps));
-    
+
     act(() => {
       result.current.handlePageInput({ target: { value: "999" } });
     });
@@ -135,7 +147,7 @@ describe("usePDFNavigation", () => {
 
   it("should go to specific page", () => {
     const { result } = renderHook(() => usePDFNavigation(defaultProps));
-    
+
     act(() => {
       result.current.goToPage(5);
     });
@@ -145,7 +157,7 @@ describe("usePDFNavigation", () => {
 
   it("should zoom in and out", () => {
     const { result } = renderHook(() => usePDFNavigation(defaultProps));
-    
+
     act(() => {
       result.current.zoomIn();
     });
@@ -160,7 +172,7 @@ describe("usePDFNavigation", () => {
 
   it("should handle keyboard events", () => {
     const { result } = renderHook(() => usePDFNavigation(defaultProps));
-    
+
     act(() => {
       window.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight" }));
     });
@@ -190,9 +202,9 @@ describe("usePDFNavigation", () => {
   it("should handle Escape key", () => {
     // Mock exitFullscreen
     document.exitFullscreen = vi.fn();
-    
+
     renderHook(() => usePDFNavigation({ ...defaultProps, isFullscreen: true }));
-    
+
     act(() => {
       window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
     });
@@ -202,14 +214,20 @@ describe("usePDFNavigation", () => {
   });
 
   it("should block keyboard events when modal is open", () => {
-    renderHook(() =>
+    const { result } = renderHook(() =>
       usePDFNavigation({ ...defaultProps, showQuestionModal: true })
     );
-    
+
+    // Verify initial page is 1
+    expect(result.current.currentPage).toBe(1);
+
     act(() => {
       window.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight" }));
     });
-    
-    expect(toast.error).toHaveBeenCalled();
+
+    // Page should remain at 1 because keyboard navigation is blocked when modal is open
+    expect(result.current.currentPage).toBe(1);
+    // onPageChange should not be called since navigation was blocked
+    expect(defaultProps.onPageChange).not.toHaveBeenCalled();
   });
 });

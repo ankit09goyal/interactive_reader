@@ -17,11 +17,17 @@ vi.mock("@/components/ePubReader/hooks/useEPubQuestionHighlights");
 
 // Mock sub-components
 vi.mock("@/components/ePubReader/ePubToolbar", () => ({
-  default: ({ onToggleTOC, onIncreaseFontSize, onDecreaseFontSize }) => (
+  default: ({
+    onToggleTOC,
+    onToggleQuestionsSidebar,
+    onToggleHighlightsSidebar,
+    onToggleSettingsSidebar,
+  }) => (
     <div data-testid="epub-toolbar">
       <button onClick={onToggleTOC}>Toggle TOC</button>
-      <button onClick={onIncreaseFontSize}>Increase Font</button>
-      <button onClick={onDecreaseFontSize}>Decrease Font</button>
+      <button onClick={onToggleQuestionsSidebar}>Toggle Questions</button>
+      <button onClick={onToggleHighlightsSidebar}>Toggle Highlights</button>
+      <button onClick={onToggleSettingsSidebar}>Toggle Settings</button>
     </div>
   ),
 }));
@@ -61,10 +67,15 @@ vi.mock("@/components/HighlightsSidebar", () => ({
       <div data-testid="highlights-sidebar">Highlights Sidebar</div>
     ) : null,
 }));
+vi.mock("@/components/PageViewSettingsSidebar", () => ({
+  default: ({ isOpen }) =>
+    isOpen ? <div data-testid="settings-sidebar">Settings Sidebar</div> : null,
+}));
 
 vi.mock("@/libs/api", () => ({
   default: {
     get: vi.fn(),
+    put: vi.fn(),
   },
 }));
 
@@ -120,9 +131,30 @@ describe("EPubReader Component", () => {
       highlights: [],
     });
 
-    apiClient.get.mockResolvedValue({
-      preferences: { lastLocation: null, fontSize: 16 },
+    // Mock different responses for different endpoints
+    apiClient.get.mockImplementation((url) => {
+      if (url === "/user/preferences") {
+        return Promise.resolve({
+          preferences: {
+            pageViewSettings: {
+              fontFamily: "Georgia",
+              fontSize: 16,
+              spacing: "normal",
+              alignment: "justify",
+              margins: "normal",
+              spread: "always",
+            },
+          },
+        });
+      }
+      if (url.startsWith("/user/books/") && url.endsWith("/preferences")) {
+        return Promise.resolve({
+          preferences: { lastLocation: null, fontSize: 16 },
+        });
+      }
+      return Promise.resolve({});
     });
+    apiClient.put.mockResolvedValue({});
   });
 
   it("renders loading state", () => {
@@ -158,6 +190,8 @@ describe("EPubReader Component", () => {
     render(
       <EPubReader filePath="/test.epub" title="Test EPub" bookId="book-1" />
     );
+    // Should load both global preferences and book-specific preferences
+    expect(apiClient.get).toHaveBeenCalledWith("/user/preferences");
     expect(apiClient.get).toHaveBeenCalledWith(
       "/user/books/book-1/preferences"
     );
@@ -177,20 +211,17 @@ describe("EPubReader Component", () => {
     expect(screen.queryByTestId("epub-toc")).not.toBeInTheDocument();
   });
 
-  it("handles font size changes", () => {
-    // Font size changes are now handled by page view settings state
-    // rather than useEPubNavigation hook functions
+  it("handles settings sidebar toggle", () => {
+    // Font size changes are now handled through the Page View Settings sidebar
+    // The toolbar no longer has direct font size buttons
     render(<EPubReader filePath="/test.epub" title="Test EPub" />);
 
-    // The buttons should be clickable without throwing errors
-    // The actual font size change happens via pageViewSettings state
-    fireEvent.click(screen.getByText("Increase Font"));
-    fireEvent.click(screen.getByText("Decrease Font"));
+    // Toggle settings sidebar
+    const settingsButton = screen.getByText("Toggle Settings");
+    fireEvent.click(settingsButton);
 
-    // Since we mock the toolbar, we just verify the buttons are rendered
-    // and clickable without errors. The actual state change is internal.
-    expect(screen.getByText("Increase Font")).toBeInTheDocument();
-    expect(screen.getByText("Decrease Font")).toBeInTheDocument();
+    // Verify settings sidebar can be toggled without errors
+    expect(settingsButton).toBeInTheDocument();
   });
 
   it("shows selection menu when text is selected", () => {

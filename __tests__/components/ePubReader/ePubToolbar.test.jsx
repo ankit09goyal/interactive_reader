@@ -12,6 +12,7 @@ vi.mock("@/libs/icons", () => ({
     menu: <span>MenuIcon</span>,
     question: <span>QuestionIcon</span>,
     highlight: <span>HighlightIcon</span>,
+    settings: <span>SettingsIcon</span>,
   },
 }));
 
@@ -24,6 +25,7 @@ describe("EPubToolbar Component", () => {
     showTOC: false,
     showQuestionsSidebar: false,
     showHighlightsSidebar: false,
+    showSettingsSidebar: false,
     bookId: "book-1",
     onPrevPage: vi.fn(),
     onNextPage: vi.fn(),
@@ -32,6 +34,7 @@ describe("EPubToolbar Component", () => {
     onToggleTOC: vi.fn(),
     onToggleQuestionsSidebar: vi.fn(),
     onToggleHighlightsSidebar: vi.fn(),
+    onToggleSettingsSidebar: vi.fn(),
     atStart: false,
     atEnd: false,
   };
@@ -51,15 +54,6 @@ describe("EPubToolbar Component", () => {
     expect(defaultProps.onNextPage).toHaveBeenCalled();
   });
 
-  it("handles font size changes", () => {
-    render(<EPubToolbar {...defaultProps} />);
-    fireEvent.click(screen.getByTitle("Increase Font Size"));
-    expect(defaultProps.onIncreaseFontSize).toHaveBeenCalled();
-
-    fireEvent.click(screen.getByTitle("Decrease Font Size"));
-    expect(defaultProps.onDecreaseFontSize).toHaveBeenCalled();
-  });
-
   it("handles toggles", () => {
     render(<EPubToolbar {...defaultProps} />);
     fireEvent.click(screen.getByTitle("Table of Contents"));
@@ -70,5 +64,8 @@ describe("EPubToolbar Component", () => {
 
     fireEvent.click(screen.getByTitle("Highlights & Notes"));
     expect(defaultProps.onToggleHighlightsSidebar).toHaveBeenCalled();
+
+    fireEvent.click(screen.getByTitle("Page View Settings"));
+    expect(defaultProps.onToggleSettingsSidebar).toHaveBeenCalled();
   });
 });
