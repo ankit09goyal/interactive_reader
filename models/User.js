@@ -60,6 +60,45 @@ const userSchema = mongoose.Schema(
         enum: ["one-page", "continuous"],
         default: "one-page",
       },
+      // Page view settings for ePub reader
+      pageViewSettings: {
+        // Font family for reading
+        fontFamily: {
+          type: String,
+          default: "Georgia",
+        },
+        // Font size in pixels
+        fontSize: {
+          type: Number,
+          default: 16,
+          min: 12,
+          max: 24,
+        },
+        // Line spacing: narrow, normal, wide
+        spacing: {
+          type: String,
+          enum: ["narrow", "normal", "wide"],
+          default: "normal",
+        },
+        // Text alignment: left or justify
+        alignment: {
+          type: String,
+          enum: ["left", "justify"],
+          default: "justify",
+        },
+        // Page margins: narrow, normal, wide
+        margins: {
+          type: String,
+          enum: ["narrow", "normal", "wide"],
+          default: "normal",
+        },
+        // Column spread: none (single column), always (two columns)
+        spread: {
+          type: String,
+          enum: ["none", "always"],
+          default: "always",
+        },
+      },
     },
   },
   {

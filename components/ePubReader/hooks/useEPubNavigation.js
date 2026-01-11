@@ -184,16 +184,9 @@ export function useEPubNavigation({
     displayBook();
   }, [rendition, initialLocation, preferencesLoaded]);
 
-  // Apply font size when it changes
-  useEffect(() => {
-    if (!rendition) return;
-
-    try {
-      rendition.themes.fontSize(`${fontSize}px`);
-    } catch (err) {
-      // Ignore errors if rendition is not ready
-    }
-  }, [rendition, fontSize]);
+  // NOTE: Font size is now applied via EPubViewer using epubjs built-in
+  // theme methods (rendition.themes.fontSize, etc.) for all view settings.
+  // This hook no longer applies fontSize directly to avoid conflicts.
 
   // Listen for location changes
   useEffect(() => {

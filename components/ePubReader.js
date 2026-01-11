@@ -20,6 +20,17 @@ import TextSelectionMenu from "./TextSelectionMenu";
 import QuestionModal from "./QuestionModal";
 import QuestionsSidebar from "./QuestionsSidebar";
 import HighlightsSidebar from "./HighlightsSidebar";
+import PageViewSettingsSidebar from "./PageViewSettingsSidebar";
+
+// Default page view settings
+const DEFAULT_PAGE_VIEW_SETTINGS = {
+  fontFamily: "Georgia",
+  fontSize: 16,
+  spacing: "normal",
+  alignment: "justify",
+  margins: "normal",
+  spread: "always",
+};
 
 /**
  * ePubReader - Main component for reading ePub files
@@ -36,6 +47,7 @@ export default function EPubReader({
   const [showTOC, setShowTOC] = useState(false);
   const [showQuestionsSidebar, setShowQuestionsSidebar] = useState(false);
   const [showHighlightsSidebar, setShowHighlightsSidebar] = useState(false);
+  const [showSettingsSidebar, setShowSettingsSidebar] = useState(false);
   const [showNotesModal, setShowNotesModal] = useState(false);
   const [showQuestionModal, setShowQuestionModal] = useState(false);
   const [selectedHighlight, setSelectedHighlight] = useState(null);
@@ -45,6 +57,10 @@ export default function EPubReader({
   const [highlightedTextClicked, setHighlightedTextClicked] = useState(0);
   const [highlightedNoteId, setHighlightedNoteId] = useState(null);
   const [highlightedNoteClicked, setHighlightedNoteClicked] = useState(0);
+
+  // Page view settings state (global user preferences)
+  const [pageViewSettings, setPageViewSettings] = useState(DEFAULT_PAGE_VIEW_SETTINGS);
+  const [pageViewSettingsLoaded, setPageViewSettingsLoaded] = useState(false);
 
   // Refs for click outside handling
   const questionsSidebarRef = useRef(null);
@@ -60,6 +76,27 @@ export default function EPubReader({
   const [modalSelectionCfi, setModalSelectionCfi] = useState(null);
   const [modalSelectionCfiRange, setModalSelectionCfiRange] = useState(null);
   const [modalChapter, setModalChapter] = useState(null);
+
+  // Load global page view settings (user preferences)
+  useEffect(() => {
+    const loadPageViewSettings = async () => {
+      try {
+        const response = await apiClient.get("/user/preferences");
+        if (response?.preferences?.pageViewSettings) {
+          setPageViewSettings({
+            ...DEFAULT_PAGE_VIEW_SETTINGS,
+            ...response.preferences.pageViewSettings,
+          });
+        }
+      } catch (err) {
+        console.error("Failed to load page view settings:", err);
+      } finally {
+        setPageViewSettingsLoaded(true);
+      }
+    };
+
+    loadPageViewSettings();
+  }, []);
 
   // Load book preferences
   useEffect(() => {
@@ -148,7 +185,7 @@ export default function EPubReader({
       setShowHighlightsSidebar(true);
       setHighlightedNoteClicked((prev) => prev + 1);
     },
-    fontSize,
+    fontSize: pageViewSettings.fontSize,
   });
 
   // Question highlights (clickable)
@@ -163,7 +200,7 @@ export default function EPubReader({
       setShowQuestionsSidebar(true);
       setHighlightedTextClicked((prev) => prev + 1);
     },
-    fontSize,
+    fontSize: pageViewSettings.fontSize,
   });
 
   // Handle asking question from selection menu
@@ -359,7 +396,7 @@ export default function EPubReader({
     [goToLocation]
   );
 
-  // Toggle questions sidebar (close highlights sidebar if open)
+  // Toggle questions sidebar (close other sidebars if open)
   const handleToggleQuestionsSidebar = useCallback(() => {
     if (showQuestionsSidebar) {
       // Close questions sidebar
@@ -367,10 +404,11 @@ export default function EPubReader({
       setHighlightedQuestionId(null);
       setHighlightedTextClicked(0);
     } else {
-      // Open questions sidebar, close highlights sidebar
+      // Open questions sidebar, close other sidebars
       setShowHighlightsSidebar(false);
       setHighlightedNoteId(null);
       setHighlightedNoteClicked(0);
+      setShowSettingsSidebar(false);
       setShowQuestionsSidebar(true);
     }
   }, [showQuestionsSidebar]);
@@ -383,13 +421,67 @@ export default function EPubReader({
       setHighlightedNoteId(null);
       setHighlightedNoteClicked(0);
     } else {
-      // Open highlights sidebar, close questions sidebar
+      // Open highlights sidebar, close other sidebars
       setShowQuestionsSidebar(false);
       setHighlightedQuestionId(null);
       setHighlightedTextClicked(0);
+      setShowSettingsSidebar(false);
       setShowHighlightsSidebar(true);
     }
   }, [showHighlightsSidebar]);
+
+  // Toggle settings sidebar (close other sidebars if open)
+  const handleToggleSettingsSidebar = useCallback(() => {
+    if (showSettingsSidebar) {
+      // Close settings sidebar
+      setShowSettingsSidebar(false);
+    } else {
+      // Open settings sidebar, close other sidebars
+      setShowQuestionsSidebar(false);
+      setHighlightedQuestionId(null);
+      setHighlightedTextClicked(0);
+      setShowHighlightsSidebar(false);
+      setHighlightedNoteId(null);
+      setHighlightedNoteClicked(0);
+      setShowSettingsSidebar(true);
+    }
+  }, [showSettingsSidebar]);
+
+  // Close settings sidebar
+  const handleCloseSettingsSidebar = useCallback(() => {
+    setShowSettingsSidebar(false);
+  }, []);
+
+  // Ref for debounced settings save
+  const saveSettingsTimeoutRef = useRef(null);
+
+  // Handle page view settings change (with debounced API save)
+  const handlePageViewSettingsChange = useCallback((newSettings) => {
+    setPageViewSettings(newSettings);
+
+    // Debounced save to API
+    if (saveSettingsTimeoutRef.current) {
+      clearTimeout(saveSettingsTimeoutRef.current);
+    }
+    saveSettingsTimeoutRef.current = setTimeout(async () => {
+      try {
+        await apiClient.put("/user/preferences", {
+          pageViewSettings: newSettings,
+        });
+      } catch (error) {
+        console.error("Failed to save page view settings:", error);
+      }
+    }, 500);
+  }, []);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (saveSettingsTimeoutRef.current) {
+        clearTimeout(saveSettingsTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Close questions sidebar
   const handleCloseQuestionsSidebar = useCallback(() => {
@@ -454,19 +546,21 @@ export default function EPubReader({
         backHref={backHref}
         currentChapter={currentChapter}
         isLoading={isLoading}
-        fontSize={fontSize}
+        fontSize={pageViewSettings.fontSize}
         showTOC={showTOC}
         showQuestionsSidebar={showQuestionsSidebar}
         showHighlightsSidebar={showHighlightsSidebar}
+        showSettingsSidebar={showSettingsSidebar}
         bookId={bookId}
         isAdmin={isAdmin}
         onPrevPage={prevPage}
         onNextPage={nextPage}
-        onIncreaseFontSize={increaseFontSize}
-        onDecreaseFontSize={decreaseFontSize}
+        onIncreaseFontSize={() => handlePageViewSettingsChange({ ...pageViewSettings, fontSize: Math.min(24, pageViewSettings.fontSize + 1) })}
+        onDecreaseFontSize={() => handlePageViewSettingsChange({ ...pageViewSettings, fontSize: Math.max(12, pageViewSettings.fontSize - 1) })}
         onToggleTOC={() => setShowTOC(!showTOC)}
         onToggleQuestionsSidebar={handleToggleQuestionsSidebar}
         onToggleHighlightsSidebar={handleToggleHighlightsSidebar}
+        onToggleSettingsSidebar={handleToggleSettingsSidebar}
         atStart={atStart}
         atEnd={atEnd}
       />
@@ -477,7 +571,12 @@ export default function EPubReader({
         isLoading={isLoading}
         error={error}
         createRendition={createRendition}
-        fontSize={fontSize}
+        fontSize={pageViewSettings.fontSize}
+        fontFamily={pageViewSettings.fontFamily}
+        spacing={pageViewSettings.spacing}
+        alignment={pageViewSettings.alignment}
+        margins={pageViewSettings.margins}
+        spread={pageViewSettings.spread}
       />
 
       {/* Table of Contents */}
@@ -574,6 +673,14 @@ export default function EPubReader({
           />
         </div>
       )}
+
+      {/* Page View Settings Sidebar */}
+      <PageViewSettingsSidebar
+        isOpen={showSettingsSidebar}
+        onClose={handleCloseSettingsSidebar}
+        settings={pageViewSettings}
+        onSettingsChange={handlePageViewSettingsChange}
+      />
     </div>
   );
 }

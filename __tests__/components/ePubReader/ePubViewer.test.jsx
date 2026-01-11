@@ -52,6 +52,8 @@ describe("EPubViewer Component", () => {
       },
       on: vi.fn(),
       destroy: vi.fn(),
+      resize: vi.fn(),
+      spread: vi.fn(),
     };
     mockCreateRendition.mockReturnValue(mockRendition);
 
@@ -67,6 +69,8 @@ describe("EPubViewer Component", () => {
     expect(container.querySelector(".epub-container")).toBeInTheDocument();
     expect(mockCreateRendition).toHaveBeenCalled();
     expect(mockRendition.themes.fontSize).toHaveBeenCalledWith("16px");
+    // Note: resize is now only called when manager is available (after display)
+    // So we don't expect it to be called immediately on render
   });
 
   it("cleans up previous rendition when book changes", () => {
@@ -76,11 +80,15 @@ describe("EPubViewer Component", () => {
       hooks: { content: { register: vi.fn() } },
       on: vi.fn(),
       destroy: mockDestroy,
+      resize: vi.fn(),
+      spread: vi.fn(),
     };
     const mockRendition2 = {
       ...mockRendition1,
       hooks: { content: { register: vi.fn() } },
       destroy: vi.fn(),
+      resize: vi.fn(),
+      spread: vi.fn(),
     };
 
     mockCreateRendition
@@ -119,6 +127,8 @@ describe("EPubViewer Component", () => {
       hooks: { content: { register: vi.fn() } },
       on: vi.fn(),
       destroy: vi.fn(),
+      resize: vi.fn(),
+      spread: vi.fn(),
     };
     mockCreateRendition.mockReturnValue(mockRendition);
 
@@ -158,6 +168,8 @@ describe("EPubViewer Component", () => {
         if (event === "keyup") keyupCallback = cb;
       }),
       destroy: vi.fn(),
+      resize: vi.fn(),
+      spread: vi.fn(),
       next: mockNext,
       prev: mockPrev,
     };
@@ -193,6 +205,8 @@ describe("EPubViewer Component", () => {
       hooks: { content: { register: mockContentRegister } },
       on: vi.fn(),
       destroy: vi.fn(),
+      resize: vi.fn(),
+      spread: vi.fn(),
     };
     mockCreateRendition.mockReturnValue(mockRendition);
 
@@ -221,6 +235,8 @@ describe("EPubViewer Component", () => {
       hooks: { content: { register: mockContentRegister } },
       on: vi.fn(),
       destroy: vi.fn(),
+      resize: vi.fn(),
+      spread: vi.fn(),
     };
     mockCreateRendition.mockReturnValue(mockRendition);
 
@@ -246,6 +262,10 @@ describe("EPubViewer Component", () => {
           const el = document.createElement(tag);
           return el;
         }),
+        getElementById: vi.fn().mockReturnValue(null),
+        head: {
+          appendChild: vi.fn(),
+        },
       },
     };
 
@@ -270,6 +290,8 @@ describe("EPubViewer Component", () => {
       hooks: { content: { register: mockContentRegister } },
       on: vi.fn(),
       destroy: vi.fn(),
+      resize: vi.fn(),
+      spread: vi.fn(),
     };
     mockCreateRendition.mockReturnValue(mockRendition);
 
@@ -289,17 +311,26 @@ describe("EPubViewer Component", () => {
     const mockTable = document.createElement("table");
     mockWrapper.appendChild(mockTable);
 
+    // Track if createElement was called for wrapper (style element will be created)
+    let wrapperCreateCount = 0;
     const mockContents = {
       document: {
         querySelectorAll: vi.fn().mockReturnValue([mockTable]),
-        createElement: vi.fn(),
+        createElement: vi.fn().mockImplementation((tag) => {
+          if (tag === "div") wrapperCreateCount++;
+          return document.createElement(tag);
+        }),
+        getElementById: vi.fn().mockReturnValue(null),
+        head: {
+          appendChild: vi.fn(),
+        },
       },
     };
 
     // Call the content callback
     contentCallback(mockContents);
 
-    // Verify createElement was not called (no new wrapper created)
-    expect(mockContents.document.createElement).not.toHaveBeenCalled();
+    // Verify no wrapper div was created (style element is created but no wrapper)
+    expect(wrapperCreateCount).toBe(0);
   });
 });

@@ -2,47 +2,108 @@
 
 import { useEffect, useRef } from "react";
 
-// Unique ID for the font size style element
-const FONT_SIZE_STYLE_ID = "epub-custom-font-size";
+// Unique ID for the view settings style element
+const VIEW_SETTINGS_STYLE_ID = "epub-view-settings";
+
+// Mapping for spacing to line-height values
+const SPACING_MAP = {
+  narrow: 1.4,
+  normal: 1.6,
+  wide: 1.8,
+};
+
+// Mapping for margins to padding values (in pixels)
+const MARGINS_MAP = {
+  narrow: 10,
+  normal: 20,
+  wide: 40,
+};
 
 /**
- * Helper function to inject font size CSS into the ePub document
+ * Helper function to inject view settings CSS into the ePub document
  * Uses !important to override any inline or internal CSS
+ * This is more comprehensive than epubjs themes API
  */
-function injectFontSizeCSS(document, fontSize) {
-  // Remove existing font size style if present
-  const existingStyle = document.getElementById(FONT_SIZE_STYLE_ID);
-  if (existingStyle) {
-    existingStyle.remove();
+function injectViewSettingsCSS(document, settings) {
+  const {
+    fontSize = 16,
+    fontFamily = "Georgia",
+    spacing = "normal",
+    alignment = "justify",
+    margins = "normal",
+  } = settings;
+
+  // Remove existing style if present
+  try {
+    const existingStyle = document.getElementById?.(VIEW_SETTINGS_STYLE_ID);
+    if (existingStyle) {
+      existingStyle.remove();
+    }
+  } catch (e) {
+    // Ignore errors if getElementById is not available
   }
 
-  // Create new style element with font size rules
+  const lineHeight = SPACING_MAP[spacing] || 1.6;
+  const padding = MARGINS_MAP[margins] || 20;
+  const textAlign = alignment === "left" ? "left" : "justify";
+
+  // Create new style element with view settings
   const style = document.createElement("style");
-  style.id = FONT_SIZE_STYLE_ID;
+  style.id = VIEW_SETTINGS_STYLE_ID;
   style.textContent = `
+    /* Base styles for body */
+    body {
+      font-family: "${fontFamily}", serif !important;
+      line-height: ${lineHeight} !important;
+      text-align: ${textAlign} !important;
+      padding: ${padding}px !important;
+    }
+
     /* Base font size for body text elements - excludes headings */
     body, p, div, span, a, li, td, th, dd, dt, figcaption, blockquote, cite, q, em, strong, b, i, u, s,
     .calibre, .calibre1, .calibre2, .calibre3, .calibre4, .calibre5,
     [class*="calibre"], [class*="text"], [class*="para"], [class*="body"] {
       font-size: ${fontSize}px !important;
+      font-family: "${fontFamily}", serif !important;
+      line-height: ${lineHeight} !important;
     }
+
+    /* Apply text alignment to paragraphs and text containers */
+    p, div, li, blockquote, figcaption {
+      text-align: ${textAlign} !important;
+    }
+
     /* Heading hierarchy with scaled sizes - use high specificity */
-    h1 > span, h1[class], [class] h1, div h1, section h1, article h1 { font-size: ${
-      fontSize * 2
-    }px !important; }
-    h2 > span, h2[class], [class] h2, div h2, section h2, article h2 { font-size: ${
-      fontSize * 1.4
-    }px !important; }
-    h3 > span, h3[class], [class] h3, div h3, section h3, article h3 { font-size: ${
-      fontSize * 1.3
-    }px !important; }
-    h4 > span, h4[class], [class] h4, div h4, section h4, article h4 { font-size: ${
-      fontSize * 1.2
-    }px !important; }
-    h5 > span, h5[class], [class] h5, div h5, section h5, article h5 { font-size: ${
-      fontSize * 1.1
-    }px !important; }
-    h6 > span, h6[class], [class] h6, div h6, section h6, article h6 { font-size: ${fontSize}px !important; }
+    h1, h1 > span, h1[class], [class] h1, div h1, section h1, article h1 { 
+      font-size: ${fontSize * 2}px !important;
+      font-family: "${fontFamily}", serif !important;
+      line-height: ${lineHeight} !important;
+    }
+    h2, h2 > span, h2[class], [class] h2, div h2, section h2, article h2 { 
+      font-size: ${fontSize * 1.4}px !important;
+      font-family: "${fontFamily}", serif !important;
+      line-height: ${lineHeight} !important;
+    }
+    h3, h3 > span, h3[class], [class] h3, div h3, section h3, article h3 { 
+      font-size: ${fontSize * 1.3}px !important;
+      font-family: "${fontFamily}", serif !important;
+      line-height: ${lineHeight} !important;
+    }
+    h4, h4 > span, h4[class], [class] h4, div h4, section h4, article h4 { 
+      font-size: ${fontSize * 1.2}px !important;
+      font-family: "${fontFamily}", serif !important;
+      line-height: ${lineHeight} !important;
+    }
+    h5, h5 > span, h5[class], [class] h5, div h5, section h5, article h5 { 
+      font-size: ${fontSize * 1.1}px !important;
+      font-family: "${fontFamily}", serif !important;
+      line-height: ${lineHeight} !important;
+    }
+    h6, h6 > span, h6[class], [class] h6, div h6, section h6, article h6 { 
+      font-size: ${fontSize}px !important;
+      font-family: "${fontFamily}", serif !important;
+      line-height: ${lineHeight} !important;
+    }
     
     /* Table styles to prevent hiding */
     table {
@@ -64,6 +125,21 @@ function injectFontSizeCSS(document, fontSize) {
 }
 
 /**
+ * Safely call rendition.resize() only if manager is initialized
+ * The manager is only available after rendition.display() is called
+ */
+function safeResize(rendition) {
+  try {
+    // Only resize if manager is initialized (after display() is called)
+    if (rendition && rendition.manager) {
+      rendition.resize();
+    }
+  } catch (e) {
+    // Ignore errors if rendition is not ready
+  }
+}
+
+/**
  * ePubViewer - Component that renders the ePub content
  * Manages the rendition container and styling
  */
@@ -73,17 +149,37 @@ export default function EPubViewer({
   error,
   createRendition,
   fontSize,
+  fontFamily = "Georgia",
+  spacing = "normal",
+  alignment = "justify",
+  margins = "normal",
+  spread = "always",
 }) {
   const containerRef = useRef(null);
   const renditionRef = useRef(null);
   const isInitializedRef = useRef(false);
   const currentBookRef = useRef(null);
-  const fontSizeRef = useRef(fontSize);
+  const isDisplayedRef = useRef(false);
+  const viewSettingsRef = useRef({
+    fontSize,
+    fontFamily,
+    spacing,
+    alignment,
+    margins,
+    spread,
+  });
 
-  // Keep fontSizeRef in sync
+  // Keep viewSettingsRef in sync
   useEffect(() => {
-    fontSizeRef.current = fontSize;
-  }, [fontSize]);
+    viewSettingsRef.current = {
+      fontSize,
+      fontFamily,
+      spacing,
+      alignment,
+      margins,
+      spread,
+    };
+  }, [fontSize, fontFamily, spacing, alignment, margins, spread]);
 
   // Create rendition only once when book is loaded
   useEffect(() => {
@@ -102,15 +198,16 @@ export default function EPubViewer({
       }
       renditionRef.current = null;
       isInitializedRef.current = false;
+      isDisplayedRef.current = false;
     }
 
     currentBookRef.current = book;
 
-    // Create new rendition
+    // Create new rendition with initial spread setting
     const rendition = createRendition(containerRef.current, {
       width: "100%",
       height: "100%",
-      spread: "none",
+      spread: viewSettingsRef.current.spread || "always",
       flow: "paginated",
     });
 
@@ -118,10 +215,10 @@ export default function EPubViewer({
       renditionRef.current = rendition;
       isInitializedRef.current = true;
 
-      // Set up themes
+      // Set up themes with defaults
       rendition.themes.default({
         body: {
-          "font-family": "Georgia, serif !important",
+          "font-family": `"${viewSettingsRef.current.fontFamily}", serif !important`,
           "line-height": "1.6 !important",
           padding: "20px !important",
         },
@@ -131,12 +228,18 @@ export default function EPubViewer({
         },
       });
 
-      // Inject CSS for tables and font size on content load
+      // Use epubjs themes.fontSize() for font size
+      rendition.themes.fontSize(`${viewSettingsRef.current.fontSize}px`);
+
+      // Apply spread setting
+      rendition.spread(viewSettingsRef.current.spread || "always");
+
+      // Inject CSS for comprehensive view settings on content load
       rendition.hooks.content.register((contents) => {
         const document = contents.document;
 
-        // Inject font size CSS
-        injectFontSizeCSS(document, fontSizeRef.current);
+        // Inject view settings CSS for comprehensive styling
+        injectViewSettingsCSS(document, viewSettingsRef.current);
 
         // Wrap tables in scrollable containers
         const tables = document.querySelectorAll("table");
@@ -180,6 +283,11 @@ export default function EPubViewer({
         },
       });
 
+      // Mark as displayed once the book is rendered
+      rendition.on("displayed", () => {
+        isDisplayedRef.current = true;
+      });
+
       // Handle keyboard navigation
       rendition.on("keyup", (e) => {
         if (e.key === "ArrowLeft" || e.key === "PageUp") {
@@ -205,27 +313,67 @@ export default function EPubViewer({
         }
         renditionRef.current = null;
         isInitializedRef.current = false;
+        isDisplayedRef.current = false;
         currentBookRef.current = null;
       }
     };
   }, [book, createRendition]); // Only depend on book and createRendition, NOT fontSize
 
-  // Update font size separately when it changes
+  // Update view settings when they change
   useEffect(() => {
-    if (renditionRef.current && fontSize) {
+    if (renditionRef.current) {
       try {
-        // Get all loaded contents (iframes) and update font size in each
+        // Use epubjs themes.fontSize() for font size
+        renditionRef.current.themes.fontSize(`${fontSize}px`);
+
+        // Apply spread setting (single or two columns)
+        renditionRef.current.spread(spread);
+
+        // Get all loaded contents (iframes) and update view settings CSS in each
         const contents = renditionRef.current.getContents();
+        const settings = {
+          fontSize,
+          fontFamily,
+          spacing,
+          alignment,
+          margins,
+        };
         contents.forEach((content) => {
           if (content.document) {
-            injectFontSizeCSS(content.document, fontSize);
+            injectViewSettingsCSS(content.document, settings);
           }
         });
+
+        // Safely call resize only if manager is ready
+        safeResize(renditionRef.current);
       } catch (e) {
         // Ignore errors if rendition is not ready
       }
     }
-  }, [fontSize]);
+  }, [fontSize, fontFamily, spacing, alignment, margins, spread]);
+
+  // Handle window resize - call rendition.resize() when window size changes
+  useEffect(() => {
+    const handleResize = () => {
+      if (renditionRef.current) {
+        safeResize(renditionRef.current);
+      }
+    };
+
+    // Debounce resize to avoid excessive calls
+    let resizeTimeout;
+    const debouncedResize = () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(handleResize, 100);
+    };
+
+    window.addEventListener("resize", debouncedResize);
+
+    return () => {
+      window.removeEventListener("resize", debouncedResize);
+      clearTimeout(resizeTimeout);
+    };
+  }, []);
 
   if (error) {
     return (

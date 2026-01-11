@@ -16,6 +16,7 @@ export default function EPubToolbar({
   showTOC,
   showQuestionsSidebar,
   showHighlightsSidebar,
+  showSettingsSidebar,
   bookId,
   isAdmin = false,
   onPrevPage,
@@ -25,6 +26,7 @@ export default function EPubToolbar({
   onToggleTOC,
   onToggleQuestionsSidebar,
   onToggleHighlightsSidebar,
+  onToggleSettingsSidebar,
   atStart,
   atEnd,
 }) {
@@ -129,6 +131,17 @@ export default function EPubToolbar({
             {icons.highlight}
           </button>
         )}
+
+        {/* Settings Sidebar toggle */}
+        <button
+          onClick={onToggleSettingsSidebar}
+          className={`btn btn-ghost btn-sm btn-square ${
+            showSettingsSidebar ? "bg-primary/20" : ""
+          }`}
+          title="Page View Settings"
+        >
+          {icons.settings}
+        </button>
       </div>
     </div>
   );

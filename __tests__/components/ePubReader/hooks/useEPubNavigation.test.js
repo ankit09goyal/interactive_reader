@@ -82,7 +82,8 @@ describe("useEPubNavigation", () => {
 
     act(() => result.current.increaseFontSize());
     expect(result.current.fontSize).toBe(18);
-    expect(mockRendition.themes.fontSize).toHaveBeenCalledWith("18px");
+    // Note: Font size is now applied via EPubViewer using epubjs built-in
+    // theme methods. This hook only manages the state and saves to preferences.
 
     // Advance timer to trigger save
     act(() => {
