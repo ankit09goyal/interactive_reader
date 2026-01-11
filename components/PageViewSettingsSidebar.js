@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import apiClient from "@/libs/api";
 import icons from "@/libs/icons";
 
 // Font family options
@@ -147,9 +146,7 @@ export default function PageViewSettingsSidebar({
   const [localSettings, setLocalSettings] = useState(
     settings || DEFAULT_SETTINGS
   );
-  const [isLoading, setIsLoading] = useState(false);
   const sidebarRef = useRef(null);
-  const saveTimeoutRef = useRef(null);
 
   // Sync local settings with props
   useEffect(() => {
@@ -178,44 +175,15 @@ export default function PageViewSettingsSidebar({
     };
   }, [isOpen, onClose]);
 
-  // Save settings to API (debounced)
-  const saveSettings = useCallback(async (newSettings) => {
-    // Clear any pending save
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-    }
-
-    // Debounce the save
-    saveTimeoutRef.current = setTimeout(async () => {
-      try {
-        await apiClient.put("/user/preferences", {
-          pageViewSettings: newSettings,
-        });
-      } catch (error) {
-        console.error("Failed to save page view settings:", error);
-      }
-    }, 500);
-  }, []);
-
-  // Handle setting change
+  // Handle setting change - parent (ePubReader) handles API save via onSettingsChange
   const handleSettingChange = useCallback(
     (key, value) => {
       const newSettings = { ...localSettings, [key]: value };
       setLocalSettings(newSettings);
       onSettingsChange(newSettings);
-      saveSettings(newSettings);
     },
-    [localSettings, onSettingsChange, saveSettings]
+    [localSettings, onSettingsChange]
   );
-
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-      }
-    };
-  }, []);
 
   if (!isOpen) return null;
 

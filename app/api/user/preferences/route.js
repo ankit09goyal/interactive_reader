@@ -11,12 +11,14 @@ const DEFAULT_PAGE_VIEW_SETTINGS = {
   spacing: "normal",
   alignment: "justify",
   margins: "normal",
+  spread: "always",
 };
 
 // Valid options for page view settings
 const VALID_SPACING = ["narrow", "normal", "wide"];
 const VALID_ALIGNMENT = ["left", "justify"];
 const VALID_MARGINS = ["narrow", "normal", "wide"];
+const VALID_SPREAD = ["none", "always"];
 const VALID_FONT_FAMILIES = [
   "Georgia",
   "Times New Roman",
@@ -56,17 +58,34 @@ export async function GET(req) {
     const preferences = {
       readerViewMode: user.preferences?.readerViewMode || "one-page",
       pageViewSettings: {
-        fontFamily: user.preferences?.pageViewSettings?.fontFamily || DEFAULT_PAGE_VIEW_SETTINGS.fontFamily,
-        fontSize: user.preferences?.pageViewSettings?.fontSize || DEFAULT_PAGE_VIEW_SETTINGS.fontSize,
-        spacing: user.preferences?.pageViewSettings?.spacing || DEFAULT_PAGE_VIEW_SETTINGS.spacing,
-        alignment: user.preferences?.pageViewSettings?.alignment || DEFAULT_PAGE_VIEW_SETTINGS.alignment,
-        margins: user.preferences?.pageViewSettings?.margins || DEFAULT_PAGE_VIEW_SETTINGS.margins,
+        fontFamily:
+          user.preferences?.pageViewSettings?.fontFamily ||
+          DEFAULT_PAGE_VIEW_SETTINGS.fontFamily,
+        fontSize:
+          user.preferences?.pageViewSettings?.fontSize ||
+          DEFAULT_PAGE_VIEW_SETTINGS.fontSize,
+        spacing:
+          user.preferences?.pageViewSettings?.spacing ||
+          DEFAULT_PAGE_VIEW_SETTINGS.spacing,
+        alignment:
+          user.preferences?.pageViewSettings?.alignment ||
+          DEFAULT_PAGE_VIEW_SETTINGS.alignment,
+        margins:
+          user.preferences?.pageViewSettings?.margins ||
+          DEFAULT_PAGE_VIEW_SETTINGS.margins,
+        spread:
+          user.preferences?.pageViewSettings?.spread ||
+          DEFAULT_PAGE_VIEW_SETTINGS.spread,
       },
     };
 
     return NextResponse.json({ preferences });
   } catch (error) {
-    return handleApiError(error, "Failed to fetch preferences", "fetching preferences");
+    return handleApiError(
+      error,
+      "Failed to fetch preferences",
+      "fetching preferences"
+    );
   }
 }
 
@@ -89,7 +108,9 @@ export async function PUT(req) {
     if (readerViewMode !== undefined) {
       if (!["one-page", "continuous"].includes(readerViewMode)) {
         return NextResponse.json(
-          { error: "Invalid readerViewMode. Must be 'one-page' or 'continuous'" },
+          {
+            error: "Invalid readerViewMode. Must be 'one-page' or 'continuous'",
+          },
           { status: 400 }
         );
       }
@@ -97,16 +118,27 @@ export async function PUT(req) {
 
     // Validate pageViewSettings if provided
     if (pageViewSettings !== undefined) {
-      const { fontFamily, fontSize, spacing, alignment, margins } = pageViewSettings;
+      const { fontFamily, fontSize, spacing, alignment, margins, spread } =
+        pageViewSettings;
 
-      if (fontFamily !== undefined && !VALID_FONT_FAMILIES.includes(fontFamily)) {
+      if (
+        fontFamily !== undefined &&
+        !VALID_FONT_FAMILIES.includes(fontFamily)
+      ) {
         return NextResponse.json(
-          { error: `Invalid fontFamily. Must be one of: ${VALID_FONT_FAMILIES.join(", ")}` },
+          {
+            error: `Invalid fontFamily. Must be one of: ${VALID_FONT_FAMILIES.join(
+              ", "
+            )}`,
+          },
           { status: 400 }
         );
       }
 
-      if (fontSize !== undefined && (typeof fontSize !== "number" || fontSize < 12 || fontSize > 24)) {
+      if (
+        fontSize !== undefined &&
+        (typeof fontSize !== "number" || fontSize < 12 || fontSize > 24)
+      ) {
         return NextResponse.json(
           { error: "Invalid fontSize. Must be a number between 12 and 24" },
           { status: 400 }
@@ -115,21 +147,42 @@ export async function PUT(req) {
 
       if (spacing !== undefined && !VALID_SPACING.includes(spacing)) {
         return NextResponse.json(
-          { error: `Invalid spacing. Must be one of: ${VALID_SPACING.join(", ")}` },
+          {
+            error: `Invalid spacing. Must be one of: ${VALID_SPACING.join(
+              ", "
+            )}`,
+          },
           { status: 400 }
         );
       }
 
       if (alignment !== undefined && !VALID_ALIGNMENT.includes(alignment)) {
         return NextResponse.json(
-          { error: `Invalid alignment. Must be one of: ${VALID_ALIGNMENT.join(", ")}` },
+          {
+            error: `Invalid alignment. Must be one of: ${VALID_ALIGNMENT.join(
+              ", "
+            )}`,
+          },
           { status: 400 }
         );
       }
 
       if (margins !== undefined && !VALID_MARGINS.includes(margins)) {
         return NextResponse.json(
-          { error: `Invalid margins. Must be one of: ${VALID_MARGINS.join(", ")}` },
+          {
+            error: `Invalid margins. Must be one of: ${VALID_MARGINS.join(
+              ", "
+            )}`,
+          },
+          { status: 400 }
+        );
+      }
+
+      if (spread !== undefined && !VALID_SPREAD.includes(spread)) {
+        return NextResponse.json(
+          {
+            error: `Invalid spread. Must be one of: ${VALID_SPREAD.join(", ")}`,
+          },
           { status: 400 }
         );
       }
@@ -145,7 +198,8 @@ export async function PUT(req) {
 
     // Add pageViewSettings fields if provided
     if (pageViewSettings !== undefined) {
-      const { fontFamily, fontSize, spacing, alignment, margins } = pageViewSettings;
+      const { fontFamily, fontSize, spacing, alignment, margins, spread } =
+        pageViewSettings;
 
       if (fontFamily !== undefined) {
         updateObj["preferences.pageViewSettings.fontFamily"] = fontFamily;
@@ -161,6 +215,9 @@ export async function PUT(req) {
       }
       if (margins !== undefined) {
         updateObj["preferences.pageViewSettings.margins"] = margins;
+      }
+      if (spread !== undefined) {
+        updateObj["preferences.pageViewSettings.spread"] = spread;
       }
     }
 
@@ -185,17 +242,33 @@ export async function PUT(req) {
     const preferences = {
       readerViewMode: user.preferences?.readerViewMode || "one-page",
       pageViewSettings: {
-        fontFamily: user.preferences?.pageViewSettings?.fontFamily || DEFAULT_PAGE_VIEW_SETTINGS.fontFamily,
-        fontSize: user.preferences?.pageViewSettings?.fontSize || DEFAULT_PAGE_VIEW_SETTINGS.fontSize,
-        spacing: user.preferences?.pageViewSettings?.spacing || DEFAULT_PAGE_VIEW_SETTINGS.spacing,
-        alignment: user.preferences?.pageViewSettings?.alignment || DEFAULT_PAGE_VIEW_SETTINGS.alignment,
-        margins: user.preferences?.pageViewSettings?.margins || DEFAULT_PAGE_VIEW_SETTINGS.margins,
+        fontFamily:
+          user.preferences?.pageViewSettings?.fontFamily ||
+          DEFAULT_PAGE_VIEW_SETTINGS.fontFamily,
+        fontSize:
+          user.preferences?.pageViewSettings?.fontSize ||
+          DEFAULT_PAGE_VIEW_SETTINGS.fontSize,
+        spacing:
+          user.preferences?.pageViewSettings?.spacing ||
+          DEFAULT_PAGE_VIEW_SETTINGS.spacing,
+        alignment:
+          user.preferences?.pageViewSettings?.alignment ||
+          DEFAULT_PAGE_VIEW_SETTINGS.alignment,
+        margins:
+          user.preferences?.pageViewSettings?.margins ||
+          DEFAULT_PAGE_VIEW_SETTINGS.margins,
+        spread:
+          user.preferences?.pageViewSettings?.spread ||
+          DEFAULT_PAGE_VIEW_SETTINGS.spread,
       },
     };
 
     return NextResponse.json({ preferences });
   } catch (error) {
-    return handleApiError(error, "Failed to update preferences", "updating preferences");
+    return handleApiError(
+      error,
+      "Failed to update preferences",
+      "updating preferences"
+    );
   }
 }
-

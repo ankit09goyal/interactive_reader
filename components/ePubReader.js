@@ -59,7 +59,9 @@ export default function EPubReader({
   const [highlightedNoteClicked, setHighlightedNoteClicked] = useState(0);
 
   // Page view settings state (global user preferences)
-  const [pageViewSettings, setPageViewSettings] = useState(DEFAULT_PAGE_VIEW_SETTINGS);
+  const [pageViewSettings, setPageViewSettings] = useState(
+    DEFAULT_PAGE_VIEW_SETTINGS
+  );
   const [pageViewSettingsLoaded, setPageViewSettingsLoaded] = useState(false);
 
   // Refs for click outside handling
@@ -452,12 +454,14 @@ export default function EPubReader({
     setShowSettingsSidebar(false);
   }, []);
 
-  // Ref for debounced settings save
+  // Refs for debounced settings save
   const saveSettingsTimeoutRef = useRef(null);
+  const pendingSettingsRef = useRef(null);
 
   // Handle page view settings change (with debounced API save)
   const handlePageViewSettingsChange = useCallback((newSettings) => {
     setPageViewSettings(newSettings);
+    pendingSettingsRef.current = newSettings;
 
     // Debounced save to API
     if (saveSettingsTimeoutRef.current) {
@@ -468,17 +472,31 @@ export default function EPubReader({
         await apiClient.put("/user/preferences", {
           pageViewSettings: newSettings,
         });
+        pendingSettingsRef.current = null;
       } catch (error) {
         console.error("Failed to save page view settings:", error);
       }
     }, 500);
   }, []);
 
-  // Cleanup timeout on unmount
+  // Save pending settings immediately on unmount
   useEffect(() => {
     return () => {
       if (saveSettingsTimeoutRef.current) {
         clearTimeout(saveSettingsTimeoutRef.current);
+      }
+      // Save any pending settings immediately before unmounting
+      if (pendingSettingsRef.current) {
+        apiClient
+          .put("/user/preferences", {
+            pageViewSettings: pendingSettingsRef.current,
+          })
+          .catch((error) => {
+            console.error(
+              "Failed to save page view settings on unmount:",
+              error
+            );
+          });
       }
     };
   }, []);
@@ -555,8 +573,18 @@ export default function EPubReader({
         isAdmin={isAdmin}
         onPrevPage={prevPage}
         onNextPage={nextPage}
-        onIncreaseFontSize={() => handlePageViewSettingsChange({ ...pageViewSettings, fontSize: Math.min(24, pageViewSettings.fontSize + 1) })}
-        onDecreaseFontSize={() => handlePageViewSettingsChange({ ...pageViewSettings, fontSize: Math.max(12, pageViewSettings.fontSize - 1) })}
+        onIncreaseFontSize={() =>
+          handlePageViewSettingsChange({
+            ...pageViewSettings,
+            fontSize: Math.min(24, pageViewSettings.fontSize + 1),
+          })
+        }
+        onDecreaseFontSize={() =>
+          handlePageViewSettingsChange({
+            ...pageViewSettings,
+            fontSize: Math.max(12, pageViewSettings.fontSize - 1),
+          })
+        }
         onToggleTOC={() => setShowTOC(!showTOC)}
         onToggleQuestionsSidebar={handleToggleQuestionsSidebar}
         onToggleHighlightsSidebar={handleToggleHighlightsSidebar}
