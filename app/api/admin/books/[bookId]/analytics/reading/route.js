@@ -32,9 +32,6 @@ export async function GET(req, { params }) {
       timePerLocation,
       dropOffAnalysis,
       sessionsOverTime,
-      highlightsByLocation,
-      highlightsWithNotes,
-      questionsByLocation,
       readingActivity,
       peakReadingTimes,
     ] = await Promise.all([

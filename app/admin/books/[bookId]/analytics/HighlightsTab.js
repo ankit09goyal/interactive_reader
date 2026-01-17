@@ -1,51 +1,28 @@
-import StatCard from "@/components/StatCard";
+import StatCard from "@/components/analytics/StatCard";
 import GdprNotice from "@/components/GdprNotice";
 import ProgressBar from "@/components/ProgressBar";
-import StatsPanel from "@/components/StatsPanel";
-
+import StatsPanel from "@/components/analytics/StatsPanel";
+import LoadingStat from "@/components/analytics/LoadingStat";
+import ErrorStat from "@/components/analytics/ErrorStat";
+import NoData from "@/components/analytics/NoData";
 /**
  * HighlightsTab - Displays highlights analytics for a book
  */
 function HighlightsTab({ data, isLoading, error, onRetry }) {
   if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className="skeleton h-24 rounded-xl" />
-          ))}
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {[...Array(2)].map((_, i) => (
-            <div key={i} className="skeleton h-64 rounded-xl" />
-          ))}
-        </div>
-      </div>
-    );
+    return <LoadingStat />;
   }
 
   if (error) {
-    return (
-      <div className="bg-error/10 border border-error rounded-xl p-6">
-        <p className="text-error">{error}</p>
-        <button onClick={onRetry} className="btn btn-error btn-sm mt-4">
-          Try Again
-        </button>
-      </div>
-    );
+    return <ErrorStat error={error} onRetry={onRetry} />;
   }
 
   if (!data) {
     return (
-      <div className="bg-base-200 rounded-xl p-6 border border-base-300">
-        <p className="text-base-content/70">
-          No highlights data available yet.
-        </p>
-        <p className="text-sm text-base-content/50 mt-2">
-          Highlights analytics will appear here once users start highlighting in
-          this book.
-        </p>
-      </div>
+      <NoData
+        label="No highlights data available yet."
+        description="Highlights analytics will appear here once users start highlighting passages in this book."
+      />
     );
   }
 

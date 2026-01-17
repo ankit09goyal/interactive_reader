@@ -1,48 +1,28 @@
-import StatCard from "@/components/StatCard";
+import StatCard from "@/components/analytics/StatCard";
 import SimpleBarChart from "@/components/SimpleBarChart";
 import HourlyChart from "@/components/HourlyChart";
 import GdprNotice from "@/components/GdprNotice";
-
+import LoadingStat from "@/components/analytics/LoadingStat";
+import ErrorStat from "@/components/analytics/ErrorStat";
+import NoData from "@/components/analytics/NoData";
 /**
  * ReadingTab - Reading analytics tab with all current stats
  */
 export default function ReadingTab({ data, isLoading, error, onRetry }) {
   if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className="skeleton h-24 rounded-xl" />
-          ))}
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className="skeleton h-64 rounded-xl" />
-          ))}
-        </div>
-      </div>
-    );
+    return <LoadingStat />;
   }
 
   if (error) {
-    return (
-      <div className="bg-error/10 border border-error rounded-xl p-6">
-        <p className="text-error">{error}</p>
-        <button onClick={onRetry} className="btn btn-error btn-sm mt-4">
-          Try Again
-        </button>
-      </div>
-    );
+    return <ErrorStat error={error} onRetry={onRetry} />;
   }
 
   if (!data) {
     return (
-      <div className="bg-base-200 rounded-xl p-6 border border-base-300">
-        <p className="text-base-content/70">No reading data available yet.</p>
-        <p className="text-sm text-base-content/50 mt-2">
-          Reading analytics will appear here once users start reading this book.
-        </p>
-      </div>
+      <NoData
+        label="No reading data available yet."
+        description="Reading analytics will appear here once users start reading this book."
+      />
     );
   }
 
@@ -63,23 +43,17 @@ export default function ReadingTab({ data, isLoading, error, onRetry }) {
   } = data;
 
   return (
-    <div className="space-y-8 tab">
+    <div className="space-y-8">
       {/* Summary Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <StatCard
           title="Total Reading Time"
           value={summary?.totalReadingTimeFormatted || "0s"}
-          colorClass="text-primary"
         />
-        <StatCard
-          title="Total Sessions"
-          value={summary?.totalSessions || 0}
-          colorClass="text-success"
-        />
+        <StatCard title="Total Sessions" value={summary?.totalSessions || 0} />
         <StatCard
           title="Avg Session Duration"
           value={summary?.avgSessionDurationFormatted || "0s"}
-          colorClass="text-info"
         />
       </div>
 
@@ -208,13 +182,13 @@ export default function ReadingTab({ data, isLoading, error, onRetry }) {
                     </span>
                     <div className="flex-1 bg-base-300 rounded-full h-4">
                       <div
-                        className="bg-success h-4 rounded-full"
+                        className="bg-neutral h-4 rounded-full"
                         style={{
                           width: `${(item.sessionCount / maxSessions) * 100}%`,
                         }}
                       />
                     </div>
-                    <span className="text-xs text-base-content/50 w-12 text-right">
+                    <span className="text-sm text-base-content/70 w-12 text-right">
                       {item.sessionCount}
                     </span>
                   </div>
