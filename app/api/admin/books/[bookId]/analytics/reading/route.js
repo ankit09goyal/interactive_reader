@@ -5,7 +5,7 @@ import Highlight from "@/models/Highlight";
 import Question from "@/models/Question";
 
 /**
- * GET /api/admin/books/[bookId]/analytics - Get aggregated analytics for a book
+ * GET /api/admin/books/[bookId]/analytics/reading - Get reading analytics for a book
  *
  * Returns:
  * - Summary statistics (total time, sessions, avg duration)
@@ -50,15 +50,6 @@ export async function GET(req, { params }) {
       // 4. Sessions over time (last 30 days)
       getSessionsOverTime(bookObjectId),
 
-      // 5. Highlights by location (counts only - GDPR compliant)
-      getHighlightsByLocation(bookObjectId),
-
-      // 6. Highlights with notes count (no actual text - GDPR compliant)
-      getHighlightsWithNotes(bookObjectId),
-
-      // 7. Questions by location (counts only - GDPR compliant)
-      getQuestionsByLocation(bookObjectId),
-
       // 8. Reading activity over time
       getReadingActivity(bookObjectId),
 
@@ -67,7 +58,7 @@ export async function GET(req, { params }) {
     ]);
 
     return NextResponse.json({
-      bookId,
+      bookObjectId,
       bookTitle: book.title,
       fileType: book.mimeType === "application/pdf" ? "PDF" : "EPUB",
       summary: summaryStats,
@@ -85,9 +76,9 @@ export async function GET(req, { params }) {
       peakReadingTimes,
     });
   } catch (error) {
-    console.error("Error fetching book analytics:", error);
+    console.error("Error fetching reading analytics:", error);
     return NextResponse.json(
-      { error: "Failed to fetch analytics" },
+      { error: "Failed to fetch reading analytics" },
       { status: 500 }
     );
   }
@@ -275,89 +266,6 @@ async function getSessionsOverTime(bookId) {
     ).padStart(2, "0")}`,
     sessionCount: item.sessionCount,
   }));
-}
-
-/**
- * Get highlights by location (counts only - GDPR compliant)
- */
-async function getHighlightsByLocation(bookId) {
-  const result = await Highlight.aggregate([
-    { $match: { bookId } },
-    {
-      $group: {
-        _id: "$chapterTitle",
-        highlightCount: { $sum: 1 },
-      },
-    },
-    { $sort: { highlightCount: -1 } },
-    { $limit: 20 },
-  ]);
-
-  return result.map((item) => ({
-    location: item._id || "Unknown",
-    highlightCount: item.highlightCount,
-  }));
-}
-
-/**
- * Get count of highlights with notes (GDPR compliant - no actual notes shown)
- */
-async function getHighlightsWithNotes(bookId) {
-  const [totalHighlights, highlightsWithNotes] = await Promise.all([
-    Highlight.countDocuments({ bookId }),
-    Highlight.countDocuments({ bookId, notes: { $nin: [null, ""] } }),
-  ]);
-
-  return {
-    total: totalHighlights,
-    withNotes: highlightsWithNotes,
-    withoutNotes: totalHighlights - highlightsWithNotes,
-    notesPercentage:
-      totalHighlights > 0
-        ? Math.round((highlightsWithNotes / totalHighlights) * 100)
-        : 0,
-  };
-}
-
-/**
- * Get questions by location (counts only - GDPR compliant)
- */
-async function getQuestionsByLocation(bookId) {
-  const result = await Question.aggregate([
-    { $match: { bookId } },
-    {
-      $group: {
-        _id: { $ifNull: ["$epubChapter", { $toString: "$pageNumber" }] },
-        questionCount: { $sum: 1 },
-        answeredCount: { $sum: { $cond: [{ $ne: ["$answer", null] }, 1, 0] } },
-      },
-    },
-    { $sort: { questionCount: -1 } },
-    { $limit: 20 },
-  ]);
-
-  // Also get total counts
-  const [totalQuestions, answeredQuestions] = await Promise.all([
-    Question.countDocuments({ bookId }),
-    Question.countDocuments({ bookId, answer: { $ne: null } }),
-  ]);
-
-  return {
-    byLocation: result.map((item) => ({
-      location: item._id || "Unknown",
-      questionCount: item.questionCount,
-      answeredCount: item.answeredCount,
-    })),
-    summary: {
-      total: totalQuestions,
-      answered: answeredQuestions,
-      unanswered: totalQuestions - answeredQuestions,
-      answeredPercentage:
-        totalQuestions > 0
-          ? Math.round((answeredQuestions / totalQuestions) * 100)
-          : 0,
-    },
-  };
 }
 
 /**
