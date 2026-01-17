@@ -26,7 +26,7 @@ export async function GET(req) {
     const bookId = searchParams.get("bookId");
     const status = searchParams.get("status"); // "answered", "unanswered", or null for all
     const page = parseInt(searchParams.get("page")) || 1;
-    const limit = parseInt(searchParams.get("limit")) || 50;
+    const limit = parseInt(searchParams.get("limit")) || 10;
 
     await connectMongo();
 
@@ -41,11 +41,13 @@ export async function GET(req) {
       bookId: bookId ? bookId : { $in: adminBookIds },
     };
 
-    // Filter by answered status if specified
+    // Filter by status if specified
     if (status === "answered") {
       query.answer = { $ne: null };
     } else if (status === "unanswered") {
       query.answer = null;
+    } else if (status === "public") {
+      query.isPublic = true;
     }
 
     // Get total count for pagination
@@ -59,7 +61,9 @@ export async function GET(req) {
       .lean();
 
     // Get unique user IDs to fetch user info
-    const userIds = [...new Set(questions.map((q) => q.userId).filter(Boolean))];
+    const userIds = [
+      ...new Set(questions.map((q) => q.userId).filter(Boolean)),
+    ];
     const users = await User.find({ _id: { $in: userIds } })
       .select("name email image")
       .lean();
@@ -112,7 +116,10 @@ export async function GET(req) {
       })),
     });
   } catch (error) {
-    return handleApiError(error, "Failed to fetch questions", "fetching admin questions");
+    return handleApiError(
+      error,
+      "Failed to fetch questions",
+      "fetching admin questions"
+    );
   }
 }
-

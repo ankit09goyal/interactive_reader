@@ -8,6 +8,8 @@ import AdminQuestionsClient from "./AdminQuestionsClient";
 
 export const dynamic = "force-dynamic";
 
+const QUESTIONS_PER_PAGE = 10;
+
 async function getQuestions(adminId) {
   await connectMongo();
 
@@ -17,12 +19,25 @@ async function getQuestions(adminId) {
     .lean();
   const adminBookIds = adminBooks.map((b) => b._id);
 
-  // Get all questions for admin's books
+  // Get total count for stats
+  const totalCount = await Question.countDocuments({
+    bookId: { $in: adminBookIds },
+  });
+  const unansweredCount = await Question.countDocuments({
+    bookId: { $in: adminBookIds },
+    answer: null,
+  });
+  const publicCount = await Question.countDocuments({
+    bookId: { $in: adminBookIds },
+    isPublic: true,
+  });
+
+  // Get first page of questions
   const questions = await Question.find({
     bookId: { $in: adminBookIds },
   })
     .sort({ createdAt: -1 })
-    .limit(100)
+    .limit(QUESTIONS_PER_PAGE)
     .lean();
 
   // Get unique user IDs to fetch user info
@@ -73,17 +88,25 @@ async function getQuestions(adminId) {
       id: b._id.toString(),
       title: b.title,
     })),
+    stats: {
+      totalCount,
+      unansweredCount,
+      publicCount,
+    },
+    pagination: {
+      page: 1,
+      limit: QUESTIONS_PER_PAGE,
+      totalCount,
+      totalPages: Math.ceil(totalCount / QUESTIONS_PER_PAGE),
+    },
   };
 }
 
 export default async function AdminQuestionsPage() {
   const session = await auth();
-  const { questions, books } = await getQuestions(session.user.id);
-
-  // Stats
-  const totalQuestions = questions.length;
-  const unansweredCount = questions.filter((q) => !q.answer).length;
-  const publicCount = questions.filter((q) => q.isPublic).length;
+  const { questions, books, stats, pagination } = await getQuestions(
+    session.user.id
+  );
 
   return (
     <div className="space-y-6">
@@ -97,22 +120,25 @@ export default async function AdminQuestionsPage() {
         <div className="flex items-center gap-4">
           <div className="flex gap-4 text-sm text-base-content/70">
             <div>
-              Total: <span className="font-semibold">{totalQuestions}</span>
+              Total: <span className="font-semibold">{stats.totalCount}</span>
             </div>
-            {unansweredCount > 0 && (
-              <div className="text-warning">
-                Unanswered: <span className="font-semibold">{unansweredCount}</span>
-              </div>
-            )}
+            <div className="text-warning">
+              Unanswered:{" "}
+              <span className="font-semibold">{stats.unansweredCount}</span>
+            </div>
+
             <div>
-              Public: <span className="font-semibold">{publicCount}</span>
+              Public: <span className="font-semibold">{stats.publicCount}</span>
             </div>
           </div>
         </div>
       </div>
 
-      <AdminQuestionsClient initialQuestions={questions} books={books} />
+      <AdminQuestionsClient
+        initialQuestions={questions}
+        books={books}
+        initialPagination={pagination}
+      />
     </div>
   );
 }
-

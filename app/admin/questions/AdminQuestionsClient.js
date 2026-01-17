@@ -1,30 +1,69 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import Link from "next/link";
 import AdminCreateQuestionModal from "@/components/AdminCreateQuestionModal";
+import apiClient from "@/libs/api";
+import icons from "@/libs/icons";
 
-export default function AdminQuestionsClient({ initialQuestions, books }) {
+export default function AdminQuestionsClient({
+  initialQuestions,
+  books,
+  initialPagination,
+}) {
   const [questions, setQuestions] = useState(initialQuestions);
   const [filter, setFilter] = useState("all"); // "all", "answered", "unanswered", "public"
   const [bookFilter, setBookFilter] = useState("all");
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [pagination, setPagination] = useState(initialPagination);
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Filter questions
-  const filteredQuestions = questions.filter((q) => {
-    // Status filter
-    if (filter === "answered" && !q.answer) return false;
-    if (filter === "unanswered" && q.answer) return false;
-    if (filter === "public" && !q.isPublic) return false;
+  // Fetch questions from API
+  const fetchQuestions = useCallback(async (page, status, bookId) => {
+    setIsLoading(true);
+    try {
+      const params = new URLSearchParams();
+      params.set("page", page.toString());
+      params.set("limit", "10");
 
-    // Book filter
-    if (bookFilter !== "all" && q.book?.id !== bookFilter) return false;
+      if (status && status !== "all") {
+        params.set("status", status);
+      }
+      if (bookId && bookId !== "all") {
+        params.set("bookId", bookId);
+      }
 
-    return true;
-  });
+      const response = await apiClient.get(
+        `/admin/questions?${params.toString()}`
+      );
+      setQuestions(response.questions);
+      setPagination(response.pagination);
+    } catch (error) {
+      console.error("Failed to fetch questions:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Handle filter changes
+  const handleFilterChange = (newFilter) => {
+    setFilter(newFilter);
+    fetchQuestions(1, newFilter, bookFilter);
+  };
+
+  const handleBookFilterChange = (newBookFilter) => {
+    setBookFilter(newBookFilter);
+    fetchQuestions(1, filter, newBookFilter);
+  };
+
+  // Handle page changes
+  const goToPage = (page) => {
+    if (page < 1 || page > pagination.totalPages) return;
+    fetchQuestions(page, filter, bookFilter);
+  };
 
   const handleQuestionCreated = (newQuestion) => {
-    // Add new question to the list
+    // Add new question to the list and refresh
     const book = books.find((b) => b.id === newQuestion.bookId);
     const formattedQuestion = {
       _id: newQuestion._id || newQuestion.id,
@@ -38,7 +77,12 @@ export default function AdminQuestionsClient({ initialQuestions, books }) {
       user: null,
       book: book || null,
     };
-    setQuestions([formattedQuestion, ...questions]);
+    setQuestions([formattedQuestion, ...questions.slice(0, 9)]);
+    setPagination((prev) => ({
+      ...prev,
+      totalCount: prev.totalCount + 1,
+      totalPages: Math.ceil((prev.totalCount + 1) / prev.limit),
+    }));
   };
 
   return (
@@ -50,8 +94,9 @@ export default function AdminQuestionsClient({ initialQuestions, books }) {
           <span className="text-sm font-medium">Status:</span>
           <select
             value={filter}
-            onChange={(e) => setFilter(e.target.value)}
+            onChange={(e) => handleFilterChange(e.target.value)}
             className="select select-bordered select-sm"
+            disabled={isLoading}
           >
             <option value="all">All</option>
             <option value="answered">Answered</option>
@@ -65,8 +110,9 @@ export default function AdminQuestionsClient({ initialQuestions, books }) {
           <span className="text-sm font-medium">Book:</span>
           <select
             value={bookFilter}
-            onChange={(e) => setBookFilter(e.target.value)}
+            onChange={(e) => handleBookFilterChange(e.target.value)}
             className="select select-bordered select-sm"
+            disabled={isLoading}
           >
             <option value="all">All Books</option>
             {books.map((book) => (
@@ -83,27 +129,20 @@ export default function AdminQuestionsClient({ initialQuestions, books }) {
             onClick={() => setShowCreateModal(true)}
             className="btn btn-primary btn-sm gap-2"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-4 w-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 4v16m8-8H4"
-              />
-            </svg>
+            {icons.plus}
             Create Public Q&A
           </button>
         </div>
       </div>
 
       {/* Questions list */}
-      {filteredQuestions.length === 0 ? (
+      {isLoading ? (
+        <div className="space-y-3">
+          {[...Array(5)].map((_, i) => (
+            <QuestionRowSkeleton key={i} />
+          ))}
+        </div>
+      ) : questions.length === 0 ? (
         <div className="text-center py-12 bg-base-200 rounded-lg">
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -128,9 +167,56 @@ export default function AdminQuestionsClient({ initialQuestions, books }) {
         </div>
       ) : (
         <div className="space-y-3">
-          {filteredQuestions.map((question) => (
+          {questions.map((question) => (
             <QuestionRow key={question._id} question={question} />
           ))}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {pagination.totalPages > 1 && (
+        <div className="flex items-center justify-between pt-4 border-t border-base-300">
+          <div className="text-sm text-base-content/70">
+            Showing {(pagination.page - 1) * pagination.limit + 1} -{" "}
+            {Math.min(
+              pagination.page * pagination.limit,
+              pagination.totalCount
+            )}{" "}
+            of {pagination.totalCount} questions
+          </div>
+          <div className="join">
+            <button
+              className="join-item btn btn-sm"
+              onClick={() => goToPage(1)}
+              disabled={pagination.page === 1 || isLoading}
+            >
+              «
+            </button>
+            <button
+              className="join-item btn btn-sm"
+              onClick={() => goToPage(pagination.page - 1)}
+              disabled={pagination.page === 1 || isLoading}
+            >
+              ‹
+            </button>
+            <div className="join-item btn-sm btn-active btn cursor-text">
+              Page {pagination.page} of {pagination.totalPages}
+            </div>
+            <button
+              className="join-item btn btn-sm"
+              onClick={() => goToPage(pagination.page + 1)}
+              disabled={pagination.page === pagination.totalPages || isLoading}
+            >
+              ›
+            </button>
+            <button
+              className="join-item btn btn-sm"
+              onClick={() => goToPage(pagination.totalPages)}
+              disabled={pagination.page === pagination.totalPages || isLoading}
+            >
+              »
+            </button>
+          </div>
         </div>
       )}
 
@@ -201,9 +287,7 @@ function QuestionRow({ question }) {
             ) : (
               <span>Admin created</span>
             )}
-            <span>
-              {new Date(question.createdAt).toLocaleDateString()}
-            </span>
+            <span>{new Date(question.createdAt).toLocaleDateString()}</span>
           </div>
         </div>
 
@@ -227,3 +311,40 @@ function QuestionRow({ question }) {
   );
 }
 
+function QuestionRowSkeleton() {
+  return (
+    <div className="bg-base-100 border border-base-300 rounded-lg p-4">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex-1 min-w-0 space-y-3">
+          {/* Badges skeleton */}
+          <div className="flex flex-wrap gap-2">
+            <div className="skeleton h-5 w-14 rounded-full"></div>
+            <div className="skeleton h-5 w-20 rounded-full"></div>
+            <div className="skeleton h-5 w-24 rounded-full"></div>
+          </div>
+
+          {/* Selected text skeleton */}
+          <div className="skeleton h-3 w-3/4"></div>
+
+          {/* Question skeleton */}
+          <div className="space-y-2">
+            <div className="skeleton h-5 w-full"></div>
+            <div className="skeleton h-5 w-2/3"></div>
+          </div>
+
+          {/* Answer preview skeleton */}
+          <div className="skeleton h-4 w-4/5"></div>
+
+          {/* Meta info skeleton */}
+          <div className="flex items-center gap-4">
+            <div className="skeleton h-3 w-32"></div>
+            <div className="skeleton h-3 w-20"></div>
+          </div>
+        </div>
+
+        {/* Arrow skeleton */}
+        <div className="skeleton h-5 w-5 flex-shrink-0"></div>
+      </div>
+    </div>
+  );
+}
