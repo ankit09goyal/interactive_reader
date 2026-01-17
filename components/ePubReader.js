@@ -10,6 +10,7 @@ import { useEPubNavigation } from "./ePubReader/hooks/useEPubNavigation";
 import { useEPubTextSelection } from "./ePubReader/hooks/useEPubTextSelection";
 import { useEPubHighlights } from "./ePubReader/hooks/useEPubHighlights";
 import { useEPubQuestionHighlights } from "./ePubReader/hooks/useEPubQuestionHighlights";
+import { useReadingAnalytics } from "@/libs/useReadingAnalytics";
 
 // Components
 import EPubToolbar from "./ePubReader/ePubToolbar";
@@ -204,6 +205,20 @@ export default function EPubReader({
     },
     fontSize: pageViewSettings.fontSize,
   });
+
+  // Reading analytics tracking (GDPR compliant - no personal data)
+  const { trackLocation } = useReadingAnalytics({
+    bookId,
+    locationType: "chapter",
+    totalChapters: toc?.length || null,
+  });
+
+  // Track chapter changes for analytics
+  useEffect(() => {
+    if (currentChapter?.label && bookId) {
+      trackLocation(currentChapter.label);
+    }
+  }, [currentChapter?.label, bookId, trackLocation]);
 
   // Handle asking question from selection menu
   const handleAskQuestion = useCallback(() => {

@@ -16,6 +16,7 @@ import { usePDFNavigation } from "./PDFReader/hooks/usePDFNavigation";
 import { usePDFTextSelection } from "./PDFReader/hooks/usePDFTextSelection";
 import { usePDFContinuousMode } from "./PDFReader/hooks/usePDFContinuousMode";
 import { usePDFHighlights } from "./PDFReader/hooks/usePDFHighlights";
+import { useReadingAnalytics } from "@/libs/useReadingAnalytics";
 import { toast } from "react-hot-toast";
 
 export default function PDFReader({
@@ -310,6 +311,20 @@ export default function PDFReader({
     bookId,
     refreshTrigger: sidebarRefreshTrigger,
   });
+
+  // Reading analytics tracking (GDPR compliant - no personal data)
+  const { trackLocation } = useReadingAnalytics({
+    bookId,
+    locationType: "page",
+    totalPages,
+  });
+
+  // Track page changes for analytics
+  useEffect(() => {
+    if (currentPage && bookId && totalPages > 0) {
+      trackLocation(String(currentPage));
+    }
+  }, [currentPage, bookId, totalPages, trackLocation]);
 
   // Handle highlight click - open sidebar and highlight question
   const handleHighlightClick = useCallback((questionId) => {
