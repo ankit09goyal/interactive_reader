@@ -1,5 +1,7 @@
 import StatCard from "@/components/StatCard";
 import GdprNotice from "@/components/GdprNotice";
+import ProgressBar from "@/components/ProgressBar";
+import StatsPanel from "@/components/StatsPanel";
 
 /**
  * HighlightsTab - Displays highlights analytics for a book
@@ -56,128 +58,80 @@ function HighlightsTab({ data, isLoading, error, onRetry }) {
         <StatCard
           title="Total Highlights"
           value={summary?.totalHighlights || 0}
-          colorClass="text-primary"
         />
         <StatCard
           title="With Notes"
           value={summary?.withNotes || 0}
           subtitle={`${summary?.notesPercentage || 0}% of highlights`}
-          colorClass="text-success"
         />
-        <StatCard
-          title="Without Notes"
-          value={summary?.withoutNotes || 0}
-          colorClass="text-warning"
-        />
+        <StatCard title="Without Notes" value={summary?.withoutNotes || 0} />
         <StatCard
           title="Avg Highlights/User"
           value={userEngagement?.avgHighlightsPerUser || 0}
           subtitle={`Based on ${
             userEngagement?.totalUsersWithAccess || 0
           } users`}
-          colorClass="text-info"
         />
       </div>
 
       {/* User Engagement Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* User Engagement Stats */}
-        <div className="bg-base-200 rounded-xl p-6 border border-base-300">
-          <h2 className="text-lg font-semibold mb-4">User Engagement</h2>
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <span className="text-base-content/70">
-                Total Users with Access
-              </span>
-              <span className="font-semibold text-lg">
-                {userEngagement?.totalUsersWithAccess || 0}
-              </span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-base-content/70">
-                Users Who Highlighted
-              </span>
-              <span className="font-semibold text-lg text-success">
-                {userEngagement?.usersWhoHighlighted || 0}
-              </span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-base-content/70">
-                Users Who Didn&apos;t Highlight
-              </span>
-              <span className="font-semibold text-lg text-warning">
-                {userEngagement?.usersWhoDidntHighlight || 0}
-              </span>
-            </div>
-
-            {/* Highlighting Rate Progress Bar */}
-            <div className="pt-4">
-              <div className="flex justify-between text-sm mb-2">
-                <span className="text-base-content/70">Highlighting Rate</span>
-                <span className="font-medium">
-                  {userEngagement?.highlightingRate || 0}%
-                </span>
-              </div>
-              <div className="w-full bg-base-300 rounded-full h-4">
-                <div
-                  className="bg-success h-4 rounded-full transition-all"
-                  style={{ width: `${userEngagement?.highlightingRate || 0}%` }}
-                />
-              </div>
-              <p className="text-xs text-base-content/50 mt-2 text-center">
-                Percentage of users who have created at least one highlight
-              </p>
-            </div>
-          </div>
-        </div>
+        <StatsPanel
+          title="User Engagement"
+          stats={[
+            {
+              label: "Total Users with Access",
+              value: userEngagement?.totalUsersWithAccess || 0,
+            },
+            {
+              label: "Users Who Highlighted",
+              value: userEngagement?.usersWhoHighlighted || 0,
+              valueColorClass: "text-primary",
+            },
+            {
+              label: "Users Who Didn't Highlight",
+              value: userEngagement?.usersWhoDidntHighlight || 0,
+              valueColorClass: "text-primary/60",
+            },
+          ]}
+          footer={
+            <ProgressBar
+              value={userEngagement?.highlightingRate || 0}
+              label="Highlighting Rate"
+              description="Percentage of users who have created at least one highlight"
+            />
+          }
+        />
 
         {/* Notes Distribution */}
-        <div className="bg-base-200 rounded-xl p-6 border border-base-300">
-          <h2 className="text-lg font-semibold mb-4">Notes Distribution</h2>
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <span className="text-base-content/70">Total Highlights</span>
-              <span className="font-semibold text-lg">
-                {summary?.totalHighlights || 0}
-              </span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-base-content/70">
-                Highlights with Notes
-              </span>
-              <span className="font-semibold text-lg text-success">
-                {summary?.withNotes || 0}
-              </span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-base-content/70">
-                Highlights without Notes
-              </span>
-              <span className="font-semibold text-lg text-warning">
-                {summary?.withoutNotes || 0}
-              </span>
-            </div>
-
-            {/* Notes Percentage Progress Bar */}
-            <div className="pt-4">
-              <div className="flex justify-between text-sm mb-2">
-                <span className="text-base-content/70">Notes Percentage</span>
-                <span className="font-medium">
-                  {summary?.notesPercentage || 0}%
-                </span>
-              </div>
-              <div className="w-full bg-base-300 rounded-full h-4">
-                <div
-                  className="bg-primary h-4 rounded-full transition-all"
-                  style={{ width: `${summary?.notesPercentage || 0}%` }}
-                />
-              </div>
-              <p className="text-xs text-base-content/50 mt-2 text-center">
-                Percentage of highlights that have accompanying notes
-              </p>
-            </div>
-          </div>
-        </div>
+        <StatsPanel
+          title="Notes Distribution"
+          bgClass="bg-base-200 border border-base-300"
+          stats={[
+            {
+              label: "Total Highlights",
+              value: summary?.totalHighlights || 0,
+            },
+            {
+              label: "Highlights with Notes",
+              value: summary?.withNotes || 0,
+              valueColorClass: "text-primary",
+            },
+            {
+              label: "Highlights without Notes",
+              value: summary?.withoutNotes || 0,
+              valueColorClass: "text-primary/60",
+            },
+          ]}
+          footer={
+            <ProgressBar
+              value={summary?.notesPercentage || 0}
+              label="Notes Percentage"
+              description="Percentage of highlights that have accompanying notes"
+            />
+          }
+        />
       </div>
 
       {/* Popular Highlights */}

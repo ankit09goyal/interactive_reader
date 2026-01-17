@@ -84,6 +84,10 @@ export async function GET(req, { params }) {
           totalQuestions > 0
             ? Math.round((answeredQuestions / totalQuestions) * 100)
             : 0,
+        publicPercentage:
+          totalQuestions > 0
+            ? Math.round((publicQuestions / totalQuestions) * 100)
+            : 0,
       },
       userEngagement: {
         totalUsersWithAccess,
