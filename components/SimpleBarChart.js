@@ -1,4 +1,4 @@
-import ProgressBar from "@/components/ProgressBar";
+import ProgressBar from "@/components/analytics/ProgressBar";
 /**
  * SimpleBarChart - Simple horizontal bar chart
  */

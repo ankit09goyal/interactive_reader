@@ -1,6 +1,6 @@
 import StatCard from "@/components/analytics/StatCard";
 import GdprNotice from "@/components/GdprNotice";
-import ProgressBar from "@/components/ProgressBar";
+import ProgressBar from "@/components/analytics/ProgressBar";
 import StatsPanel from "@/components/analytics/StatsPanel";
 import LoadingStat from "@/components/analytics/LoadingStat";
 import ErrorStat from "@/components/analytics/ErrorStat";
