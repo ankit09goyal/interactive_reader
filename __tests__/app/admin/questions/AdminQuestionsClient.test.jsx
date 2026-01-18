@@ -1,9 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 
 // Mock next/link
 vi.mock("next/link", () => ({
   default: ({ children, href }) => <a href={href}>{children}</a>,
+}));
+
+// Mock apiClient
+const mockApiGet = vi.fn();
+vi.mock("@/libs/api", () => ({
+  default: {
+    get: (...args) => mockApiGet(...args),
+  },
 }));
 
 // Mock AdminCreateQuestionModal
@@ -57,6 +65,14 @@ describe("AdminQuestionsClient Component", () => {
     },
   ];
 
+  const mockPagination = {
+    currentPage: 1,
+    totalPages: 1,
+    totalItems: 2,
+    hasNextPage: false,
+    hasPrevPage: false,
+  };
+
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -66,6 +82,7 @@ describe("AdminQuestionsClient Component", () => {
       <AdminQuestionsClient
         initialQuestions={mockQuestions}
         books={mockBooks}
+        initialPagination={mockPagination}
       />
     );
 
@@ -78,6 +95,7 @@ describe("AdminQuestionsClient Component", () => {
       <AdminQuestionsClient
         initialQuestions={mockQuestions}
         books={mockBooks}
+        initialPagination={mockPagination}
       />
     );
 
@@ -85,63 +103,99 @@ describe("AdminQuestionsClient Component", () => {
     expect(screen.getByText("Book:")).toBeInTheDocument();
   });
 
-  it("should filter by answered status", () => {
+  it("should filter by answered status", async () => {
+    const answeredQuestions = [mockQuestions[0]]; // Only q1 is answered
+    mockApiGet.mockResolvedValueOnce({
+      questions: answeredQuestions,
+      pagination: { ...mockPagination, totalItems: 1 },
+    });
+
     render(
       <AdminQuestionsClient
         initialQuestions={mockQuestions}
         books={mockBooks}
+        initialPagination={mockPagination}
       />
     );
 
     const statusFilter = screen.getAllByRole("combobox")[0];
     fireEvent.change(statusFilter, { target: { value: "answered" } });
 
-    expect(screen.getByText("Question 1?")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText("Question 1?")).toBeInTheDocument();
+    });
     expect(screen.queryByText("Question 2?")).not.toBeInTheDocument();
   });
 
-  it("should filter by unanswered status", () => {
+  it("should filter by unanswered status", async () => {
+    const unansweredQuestions = [mockQuestions[1]]; // Only q2 is unanswered
+    mockApiGet.mockResolvedValueOnce({
+      questions: unansweredQuestions,
+      pagination: { ...mockPagination, totalItems: 1 },
+    });
+
     render(
       <AdminQuestionsClient
         initialQuestions={mockQuestions}
         books={mockBooks}
+        initialPagination={mockPagination}
       />
     );
 
     const statusFilter = screen.getAllByRole("combobox")[0];
     fireEvent.change(statusFilter, { target: { value: "unanswered" } });
 
+    await waitFor(() => {
+      expect(screen.getByText("Question 2?")).toBeInTheDocument();
+    });
     expect(screen.queryByText("Question 1?")).not.toBeInTheDocument();
-    expect(screen.getByText("Question 2?")).toBeInTheDocument();
   });
 
-  it("should filter by public status", () => {
+  it("should filter by public status", async () => {
+    const publicQuestions = [mockQuestions[0]]; // Only q1 is public
+    mockApiGet.mockResolvedValueOnce({
+      questions: publicQuestions,
+      pagination: { ...mockPagination, totalItems: 1 },
+    });
+
     render(
       <AdminQuestionsClient
         initialQuestions={mockQuestions}
         books={mockBooks}
+        initialPagination={mockPagination}
       />
     );
 
     const statusFilter = screen.getAllByRole("combobox")[0];
     fireEvent.change(statusFilter, { target: { value: "public" } });
 
-    expect(screen.getByText("Question 1?")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText("Question 1?")).toBeInTheDocument();
+    });
     expect(screen.queryByText("Question 2?")).not.toBeInTheDocument();
   });
 
-  it("should filter by book", () => {
+  it("should filter by book", async () => {
+    const book1Questions = [mockQuestions[0]]; // Only q1 is in book-1
+    mockApiGet.mockResolvedValueOnce({
+      questions: book1Questions,
+      pagination: { ...mockPagination, totalItems: 1 },
+    });
+
     render(
       <AdminQuestionsClient
         initialQuestions={mockQuestions}
         books={mockBooks}
+        initialPagination={mockPagination}
       />
     );
 
     const bookFilter = screen.getAllByRole("combobox")[1];
     fireEvent.change(bookFilter, { target: { value: "book-1" } });
 
-    expect(screen.getByText("Question 1?")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText("Question 1?")).toBeInTheDocument();
+    });
     expect(screen.queryByText("Question 2?")).not.toBeInTheDocument();
   });
 
@@ -150,6 +204,7 @@ describe("AdminQuestionsClient Component", () => {
       <AdminQuestionsClient
         initialQuestions={mockQuestions}
         books={mockBooks}
+        initialPagination={mockPagination}
       />
     );
 
@@ -164,6 +219,7 @@ describe("AdminQuestionsClient Component", () => {
       <AdminQuestionsClient
         initialQuestions={mockQuestions}
         books={mockBooks}
+        initialPagination={mockPagination}
       />
     );
 
@@ -181,6 +237,7 @@ describe("AdminQuestionsClient Component", () => {
       <AdminQuestionsClient
         initialQuestions={mockQuestions}
         books={mockBooks}
+        initialPagination={mockPagination}
       />
     );
 
@@ -192,21 +249,39 @@ describe("AdminQuestionsClient Component", () => {
     expect(screen.getByText("Question 2?")).toBeInTheDocument();
   });
 
-  it("should show empty state when no questions match filter", () => {
+  it("should show empty state when no questions match filter", async () => {
+    // First filter returns q1 (answered), second filter returns empty
+    mockApiGet
+      .mockResolvedValueOnce({
+        questions: [mockQuestions[0]],
+        pagination: { ...mockPagination, totalItems: 1 },
+      })
+      .mockResolvedValueOnce({
+        questions: [],
+        pagination: { ...mockPagination, totalItems: 0 },
+      });
+
     render(
       <AdminQuestionsClient
         initialQuestions={mockQuestions}
         books={mockBooks}
+        initialPagination={mockPagination}
       />
     );
 
     const statusFilter = screen.getAllByRole("combobox")[0];
     fireEvent.change(statusFilter, { target: { value: "answered" } });
 
+    await waitFor(() => {
+      expect(screen.getByText("Question 1?")).toBeInTheDocument();
+    });
+
     const bookFilter = screen.getAllByRole("combobox")[1];
     fireEvent.change(bookFilter, { target: { value: "book-2" } });
 
-    expect(screen.getByText(/No questions found/)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText(/No questions found/)).toBeInTheDocument();
+    });
   });
 
   it("should render question badges correctly", () => {
@@ -214,6 +289,7 @@ describe("AdminQuestionsClient Component", () => {
       <AdminQuestionsClient
         initialQuestions={mockQuestions}
         books={mockBooks}
+        initialPagination={mockPagination}
       />
     );
 
@@ -228,6 +304,7 @@ describe("AdminQuestionsClient Component", () => {
       <AdminQuestionsClient
         initialQuestions={mockQuestions}
         books={mockBooks}
+        initialPagination={mockPagination}
       />
     );
 
@@ -256,6 +333,7 @@ describe("AdminQuestionsClient Component", () => {
       <AdminQuestionsClient
         initialQuestions={questionsWithText}
         books={mockBooks}
+        initialPagination={mockPagination}
       />
     );
 
@@ -268,6 +346,7 @@ describe("AdminQuestionsClient Component", () => {
       <AdminQuestionsClient
         initialQuestions={mockQuestions}
         books={mockBooks}
+        initialPagination={mockPagination}
       />
     );
 
@@ -281,6 +360,7 @@ describe("AdminQuestionsClient Component", () => {
       <AdminQuestionsClient
         initialQuestions={mockQuestions}
         books={mockBooks}
+        initialPagination={mockPagination}
       />
     );
 
@@ -292,6 +372,7 @@ describe("AdminQuestionsClient Component", () => {
       <AdminQuestionsClient
         initialQuestions={mockQuestions}
         books={mockBooks}
+        initialPagination={mockPagination}
       />
     );
 

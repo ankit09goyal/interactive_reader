@@ -86,6 +86,13 @@ describe("EPubReader Component", () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
+    // Mock navigator.sendBeacon for analytics
+    Object.defineProperty(navigator, "sendBeacon", {
+      value: vi.fn(),
+      writable: true,
+      configurable: true,
+    });
+
     // Default hook return values
     useEPubLoader.mockReturnValue({
       book: {},

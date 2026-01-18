@@ -78,11 +78,12 @@ describe("usePDFLoader", () => {
       .spyOn(console, "error")
       .mockImplementation(() => {});
 
-    // Setup rejection - create a promise factory that rejects when awaited
+    // Setup rejection using Promise.reject - attach a no-op catch to prevent unhandled rejection
+    const rejectedPromise = Promise.reject(mockError);
+    rejectedPromise.catch(() => {}); // Prevent unhandled rejection warning
+
     mockPdfJs.getDocument.mockReturnValueOnce({
-      promise: (async () => {
-        throw mockError;
-      })(),
+      promise: rejectedPromise,
     });
 
     const usePDFLoader = await getHook();

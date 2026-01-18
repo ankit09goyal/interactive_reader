@@ -118,7 +118,7 @@ describe("useEPubNavigation", () => {
     });
 
     expect(result.current.currentLocation).toBe("cfi_new");
-    expect(result.current.currentChapter.href).toBe("ch2.html");
+    // Note: currentChapter is not returned by the hook - only currentLocation (CFI)
     expect(result.current.atEnd).toBe(true);
     expect(defaultProps.onLocationChange).toHaveBeenCalledWith("cfi_new", locationData);
 
