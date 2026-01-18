@@ -14,12 +14,14 @@ vi.mock("@/libs/mongoose", () => ({
 
 // Mock models
 const mockQuestionFind = vi.fn();
+const mockQuestionCountDocuments = vi.fn();
 const mockBookFind = vi.fn();
 const mockUserFind = vi.fn();
 
 vi.mock("@/models/Question", () => ({
   default: {
     find: mockQuestionFind,
+    countDocuments: mockQuestionCountDocuments,
   },
 }));
 
@@ -63,6 +65,7 @@ describe("Admin Questions Page", () => {
     vi.clearAllMocks();
     mockBookFind.mockReturnValue(createChainableMock([]));
     mockQuestionFind.mockReturnValue(createChainableMock([]));
+    mockQuestionCountDocuments.mockResolvedValue(0);
     mockUserFind.mockReturnValue(createChainableMock([]));
   });
 
@@ -116,6 +119,11 @@ describe("Admin Questions Page", () => {
     mockAuth.mockResolvedValue(mockSession);
     mockBookFind.mockReturnValue(createChainableMock(mockBooks));
     mockQuestionFind.mockReturnValue(createChainableMock(mockQuestions));
+    // Mock countDocuments: totalCount=2, unansweredCount=1, publicCount=1
+    mockQuestionCountDocuments
+      .mockResolvedValueOnce(2) // totalCount
+      .mockResolvedValueOnce(1) // unansweredCount
+      .mockResolvedValueOnce(1); // publicCount
     mockUserFind.mockReturnValue(createChainableMock(mockUsers));
 
     const AdminQuestionsPage = (await import("@/app/admin/questions/page"))
@@ -161,6 +169,11 @@ describe("Admin Questions Page", () => {
     mockAuth.mockResolvedValue(mockSession);
     mockBookFind.mockReturnValue(createChainableMock(mockBooks));
     mockQuestionFind.mockReturnValue(createChainableMock(mockQuestions));
+    // Mock countDocuments: totalCount=2, unansweredCount=1, publicCount=0
+    mockQuestionCountDocuments
+      .mockResolvedValueOnce(2) // totalCount
+      .mockResolvedValueOnce(1) // unansweredCount
+      .mockResolvedValueOnce(0); // publicCount
     mockUserFind.mockReturnValue(createChainableMock([]));
 
     const AdminQuestionsPage = (await import("@/app/admin/questions/page"))
@@ -203,6 +216,11 @@ describe("Admin Questions Page", () => {
     mockAuth.mockResolvedValue(mockSession);
     mockBookFind.mockReturnValue(createChainableMock(mockBooks));
     mockQuestionFind.mockReturnValue(createChainableMock(mockQuestions));
+    // Mock countDocuments: totalCount=2, unansweredCount=0, publicCount=1
+    mockQuestionCountDocuments
+      .mockResolvedValueOnce(2) // totalCount
+      .mockResolvedValueOnce(0) // unansweredCount
+      .mockResolvedValueOnce(1); // publicCount
     mockUserFind.mockReturnValue(createChainableMock([]));
 
     const AdminQuestionsPage = (await import("@/app/admin/questions/page"))
@@ -232,6 +250,7 @@ describe("Admin Questions Page", () => {
     mockAuth.mockResolvedValue(mockSession);
     mockBookFind.mockReturnValue(createChainableMock(mockBooks));
     mockQuestionFind.mockReturnValue(createChainableMock([]));
+    mockQuestionCountDocuments.mockResolvedValue(0);
     mockUserFind.mockReturnValue(createChainableMock([]));
 
     const AdminQuestionsPage = (await import("@/app/admin/questions/page"))
@@ -244,7 +263,7 @@ describe("Admin Questions Page", () => {
     });
   });
 
-  it("should limit questions to 100", async () => {
+  it("should limit questions to QUESTIONS_PER_PAGE (10)", async () => {
     const mockSession = {
       user: {
         id: "admin-id",
@@ -258,13 +277,14 @@ describe("Admin Questions Page", () => {
     const chainMock = createChainableMock([]);
     mockQuestionFind.mockReturnValue(chainMock);
     mockBookFind.mockReturnValue(createChainableMock([]));
+    mockQuestionCountDocuments.mockResolvedValue(0);
     mockUserFind.mockReturnValue(createChainableMock([]));
 
     const AdminQuestionsPage = (await import("@/app/admin/questions/page"))
       .default;
     await AdminQuestionsPage();
 
-    expect(chainMock.limit).toHaveBeenCalledWith(100);
+    expect(chainMock.limit).toHaveBeenCalledWith(10); // QUESTIONS_PER_PAGE = 10
   });
 
   it("should format questions with user and book info", async () => {
@@ -313,6 +333,7 @@ describe("Admin Questions Page", () => {
     mockAuth.mockResolvedValue(mockSession);
     mockBookFind.mockReturnValue(createChainableMock(mockBooks));
     mockQuestionFind.mockReturnValue(createChainableMock(mockQuestions));
+    mockQuestionCountDocuments.mockResolvedValue(1);
     mockUserFind.mockReturnValue(createChainableMock(mockUsers));
 
     const AdminQuestionsPage = (await import("@/app/admin/questions/page"))
@@ -347,6 +368,7 @@ describe("Admin Questions Page", () => {
     mockAuth.mockResolvedValue(mockSession);
     mockBookFind.mockReturnValue(createChainableMock(mockBooks));
     mockQuestionFind.mockReturnValue(createChainableMock(mockQuestions));
+    mockQuestionCountDocuments.mockResolvedValue(1);
     mockUserFind.mockReturnValue(createChainableMock([]));
 
     const AdminQuestionsPage = (await import("@/app/admin/questions/page"))

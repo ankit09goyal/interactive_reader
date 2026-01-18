@@ -65,10 +65,6 @@ export default function EPubReader({
   );
   const [pageViewSettingsLoaded, setPageViewSettingsLoaded] = useState(false);
 
-  // Refs for click outside handling
-  const questionsSidebarRef = useRef(null);
-  const highlightsSidebarRef = useRef(null);
-
   // Preferences state
   const [preferencesLoaded, setPreferencesLoaded] = useState(false);
   const [initialLocation, setInitialLocation] = useState(null);
@@ -530,47 +526,6 @@ export default function EPubReader({
     setHighlightedNoteClicked(0);
   }, []);
 
-  // Handle click outside sidebars to close them
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      // Don't close sidebars if clicking on modals
-      if (showNotesModal || showQuestionModal) return;
-
-      // Don't close if clicking on toolbar buttons
-      if (event.target.closest(".toolbar")) return;
-
-      // Check if click is outside both sidebars
-      const isOutsideQuestionsSidebar =
-        !showQuestionsSidebar ||
-        !event.target.closest('[data-sidebar="questions"]');
-      const isOutsideHighlightsSidebar =
-        !showHighlightsSidebar ||
-        !event.target.closest('[data-sidebar="highlights"]');
-
-      // Close questions sidebar if clicking outside
-      if (showQuestionsSidebar && isOutsideQuestionsSidebar) {
-        handleCloseQuestionsSidebar();
-      }
-
-      // Close highlights sidebar if clicking outside
-      if (showHighlightsSidebar && isOutsideHighlightsSidebar) {
-        handleCloseHighlightsSidebar();
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [
-    showQuestionsSidebar,
-    showHighlightsSidebar,
-    showNotesModal,
-    showQuestionModal,
-    handleCloseQuestionsSidebar,
-    handleCloseHighlightsSidebar,
-  ]);
-
   return (
     <div className="flex flex-col w-full h-full bg-base-100 overflow-hidden">
       {/* Toolbar */}
@@ -682,38 +637,45 @@ export default function EPubReader({
         />
       )}
 
+      {/* Sidebar Backdrop - closes sidebar when clicking outside */}
+      {(showQuestionsSidebar || showHighlightsSidebar) && (
+        <div
+          className="fixed inset-0 bg-black/20 z-[140]"
+          onClick={() => {
+            if (showQuestionsSidebar) handleCloseQuestionsSidebar();
+            if (showHighlightsSidebar) handleCloseHighlightsSidebar();
+          }}
+        />
+      )}
+
       {/* Questions Sidebar */}
       {bookId && (
-        <div data-sidebar="questions">
-          <QuestionsSidebar
-            isOpen={showQuestionsSidebar}
-            onClose={handleCloseQuestionsSidebar}
-            bookId={bookId}
-            onGoToPage={handleGoToLocation}
-            refreshTrigger={sidebarRefreshTrigger}
-            onAddQuestion={handleAddQuestion}
-            onQuestionDeleted={handleQuestionDeleted}
-            isEPub={true}
-            highlightedQuestionId={highlightedQuestionId}
-            highlightedTextClicked={highlightedTextClicked}
-          />
-        </div>
+        <QuestionsSidebar
+          isOpen={showQuestionsSidebar}
+          onClose={handleCloseQuestionsSidebar}
+          bookId={bookId}
+          onGoToPage={handleGoToLocation}
+          refreshTrigger={sidebarRefreshTrigger}
+          onAddQuestion={handleAddQuestion}
+          onQuestionDeleted={handleQuestionDeleted}
+          isEPub={true}
+          highlightedQuestionId={highlightedQuestionId}
+          highlightedTextClicked={highlightedTextClicked}
+        />
       )}
 
       {/* Highlights Sidebar */}
       {bookId && (
-        <div data-sidebar="highlights">
-          <HighlightsSidebar
-            isOpen={showHighlightsSidebar}
-            onClose={handleCloseHighlightsSidebar}
-            highlights={highlights}
-            onHighlightClick={handleHighlightClick}
-            onGoToLocation={handleGoToLocation}
-            onHighlightDeleted={handleDeleteHighlight}
-            highlightedNoteId={highlightedNoteId}
-            highlightedNoteClicked={highlightedNoteClicked}
-          />
-        </div>
+        <HighlightsSidebar
+          isOpen={showHighlightsSidebar}
+          onClose={handleCloseHighlightsSidebar}
+          highlights={highlights}
+          onHighlightClick={handleHighlightClick}
+          onGoToLocation={handleGoToLocation}
+          onHighlightDeleted={handleDeleteHighlight}
+          highlightedNoteId={highlightedNoteId}
+          highlightedNoteClicked={highlightedNoteClicked}
+        />
       )}
 
       {/* Page View Settings Sidebar */}
