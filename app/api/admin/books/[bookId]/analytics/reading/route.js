@@ -62,13 +62,6 @@ export async function GET(req, { params }) {
       timePerLocation,
       dropOffAnalysis,
       sessionsOverTime,
-      highlights: {
-        byLocation: highlightsByLocation,
-        withNotes: highlightsWithNotes,
-      },
-      questions: {
-        byLocation: questionsByLocation,
-      },
       readingActivity,
       peakReadingTimes,
     });

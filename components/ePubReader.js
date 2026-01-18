@@ -209,16 +209,16 @@ export default function EPubReader({
   // Reading analytics tracking (GDPR compliant - no personal data)
   const { trackLocation } = useReadingAnalytics({
     bookId,
-    locationType: "chapter",
+    locationType: "cfi",
     totalChapters: toc?.length || null,
   });
 
-  // Track chapter changes for analytics
+  // Track location changes for analytics (using CFI which changes on every navigation)
   useEffect(() => {
-    if (currentChapter?.label && bookId) {
-      trackLocation(currentChapter.label);
+    if (currentLocation && bookId) {
+      trackLocation(currentLocation);
     }
-  }, [currentChapter?.label, bookId, trackLocation]);
+  }, [currentLocation, bookId, trackLocation]);
 
   // Handle asking question from selection menu
   const handleAskQuestion = useCallback(() => {

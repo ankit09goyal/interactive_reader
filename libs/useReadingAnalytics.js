@@ -137,6 +137,11 @@ export function useReadingAnalytics({
   const trackLocation = useCallback(
     (location) => {
       if (!bookIdRef.current || !location) return;
+      const locationStr = String(location);
+
+      // Skip if same location - don't reset time tracking
+      // This prevents time from being reset when the effect re-runs with the same location
+      if (currentLocationRef.current === locationStr) return;
 
       const now = Date.now();
 
@@ -152,7 +157,7 @@ export function useReadingAnalytics({
       }
 
       // Update to new location
-      currentLocationRef.current = String(location);
+      currentLocationRef.current = locationStr;
       timeOnLocationRef.current = 0;
       lastUpdateTimeRef.current = now;
 
@@ -162,7 +167,7 @@ export function useReadingAnalytics({
       queueEvent({
         eventType,
         locationType: locationTypeRef.current,
-        location: String(location),
+        location: locationStr,
         sessionId: sessionIdRef.current,
       });
     },
@@ -277,7 +282,14 @@ export function useReadingAnalytics({
 
       endSession();
     };
-  }, [bookId, locationType, queueEvent, updateTimeTracking, flushEvents, endSession]);
+  }, [
+    bookId,
+    locationType,
+    queueEvent,
+    updateTimeTracking,
+    flushEvents,
+    endSession,
+  ]);
 
   return {
     trackLocation,
