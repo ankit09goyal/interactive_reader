@@ -1,5 +1,4 @@
 import StatCard from "@/components/analytics/StatCard";
-import SimpleBarChart from "@/components/SimpleBarChart";
 import HourlyChart from "@/components/HourlyChart";
 import GdprNotice from "@/components/GdprNotice";
 import LoadingStat from "@/components/analytics/LoadingStat";
