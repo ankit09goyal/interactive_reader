@@ -56,7 +56,8 @@ describe("TextSelectionMenu Component", () => {
     it("should render at the correct position", () => {
       render(<TextSelectionMenu {...defaultProps} />);
 
-      const menu = document.querySelector(".fixed");
+      // Query the menu element (second .fixed element with bg-base-100)
+      const menu = document.querySelector(".fixed.bg-base-100");
       expect(menu).toHaveStyle({ left: "100px", top: "200px" });
     });
 
@@ -187,7 +188,8 @@ describe("TextSelectionMenu Component", () => {
     it("should not call onClose when clicking inside the menu", () => {
       render(<TextSelectionMenu {...defaultProps} />);
 
-      const menu = document.querySelector(".fixed");
+      // Query the menu element (second .fixed element with bg-base-100)
+      const menu = document.querySelector(".fixed.bg-base-100");
       fireEvent.mouseDown(menu);
 
       expect(defaultProps.onClose).not.toHaveBeenCalled();
@@ -206,7 +208,8 @@ describe("TextSelectionMenu Component", () => {
     it("should have correct base styling", () => {
       render(<TextSelectionMenu {...defaultProps} />);
 
-      const menu = document.querySelector(".fixed");
+      // Query the menu element (second .fixed element with bg-base-100)
+      const menu = document.querySelector(".fixed.bg-base-100");
       expect(menu.className).toContain("bg-base-100");
       expect(menu.className).toContain("rounded-lg");
       expect(menu.className).toContain("shadow-xl");

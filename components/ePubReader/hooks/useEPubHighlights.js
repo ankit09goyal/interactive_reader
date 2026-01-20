@@ -311,30 +311,9 @@ export function useEPubHighlights({
           setHighlights((prev) => [newHighlight, ...prev]);
         }
 
-        // Add annotation to rendition
-        if (renditionRef.current && cfiRange) {
-          try {
-            renditionRef.current.annotations.add(
-              "highlight",
-              cfiRange,
-              {},
-              () => {},
-              `highlight-${newHighlight._id}`,
-              {
-                fill: colorMap[color] || colorMap.yellow,
-                "fill-opacity": "0.4",
-                "mix-blend-mode": "multiply",
-                "data-highlight-id": newHighlight._id,
-                "data-has-notes":
-                  newHighlight.notes &&
-                  typeof newHighlight.notes === "string" &&
-                  newHighlight.notes.trim().length > 0,
-              }
-            );
-          } catch (err) {
-            console.warn("Failed to add annotation:", err);
-          }
-        }
+        // Note: The annotation will be added by the useEffect that watches
+        // the highlights array. We don't add it manually here to avoid
+        // duplicate annotations (which would cause deletion bugs).
 
         return newHighlight;
       } catch (err) {
