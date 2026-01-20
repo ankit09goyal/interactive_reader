@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { findChapterFromNode } from "../../../libs/chapterUtils";
 
 /**
  * useEPubTextSelection - Custom hook for handling text selection in ePub
@@ -9,6 +10,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 export function useEPubTextSelection({
   rendition,
   currentChapter,
+  toc,
   showNotesModal,
   showQuestionModal,
   showSidebar,
@@ -20,6 +22,7 @@ export function useEPubTextSelection({
   const [selectionChapter, setSelectionChapter] = useState(null);
 
   const renditionRef = useRef(rendition);
+  const tocRef = useRef(toc);
   const isMountedRef = useRef(true);
 
   // Track mounted state
@@ -30,10 +33,14 @@ export function useEPubTextSelection({
     };
   }, []);
 
-  // Keep rendition ref updated
+  // Keep refs updated
   useEffect(() => {
     renditionRef.current = rendition;
   }, [rendition]);
+
+  useEffect(() => {
+    tocRef.current = toc;
+  }, [toc]);
 
   // Handle text selection in rendition
   useEffect(() => {
@@ -62,7 +69,6 @@ export function useEPubTextSelection({
 
           setSelectedText(text);
           setSelectionCfiRange(cfiRange);
-          setSelectionChapter(currentChapter);
 
           // Calculate position relative to viewport
           setSelectionPosition({
@@ -76,6 +82,20 @@ export function useEPubTextSelection({
             setSelectionCfi(cfi);
           } catch (e) {
             setSelectionCfi(cfiRange);
+          }
+
+          // Find chapter using the selection's DOM node and the content document
+          const contentDocument = contents.document;
+          const selectionNode = range.startContainer;
+          
+          const detectedChapter = findChapterFromNode(
+            selectionNode,
+            contentDocument,
+            tocRef.current
+          );
+
+          if (isMountedRef.current) {
+            setSelectionChapter(detectedChapter || currentChapter);
           }
         }
       } catch (err) {
@@ -95,6 +115,7 @@ export function useEPubTextSelection({
   }, [
     rendition,
     currentChapter,
+    toc,
     showNotesModal,
     showQuestionModal,
     showSidebar,

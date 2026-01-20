@@ -2,6 +2,52 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import apiClient from "@/libs/api";
+import {
+  flattenTOC,
+  getBaseHref,
+  findChapterFromNode,
+} from "../../../libs/chapterUtils";
+
+/**
+ * Find the current chapter for navigation/TOC highlighting
+ * Uses DOM inspection to find the nearest chapter heading before current position
+ */
+async function findChapterForLocation(location, toc, rendition) {
+  if (!location || !toc || toc.length === 0 || !rendition || !rendition.book) return null;
+
+  try {
+    const flatToc = flattenTOC(toc);
+    if (flatToc.length === 0) return null;
+
+    const currentCfi = location.start?.cfi;
+    if (!currentCfi) return null;
+
+    // Get DOM range for this CFI
+    const range = await rendition.getRange(currentCfi);
+    
+    if (range && range.startContainer) {
+      const contentDocument = range.startContainer.ownerDocument;
+      if (!contentDocument) return flatToc[0];
+
+      // Use shared utility to find chapter
+      const chapter = findChapterFromNode(range.startContainer, contentDocument, toc);
+      if (chapter) return chapter;
+    }
+
+    // Fallback: simple spine-based matching
+    const spineItem = rendition.book.spine.get(currentCfi);
+    if (spineItem) {
+      const spineHref = getBaseHref(spineItem.href);
+      const match = flatToc.find(item => getBaseHref(item.href) === spineHref);
+      return match || flatToc[0];
+    }
+
+    return flatToc[0];
+  } catch (err) {
+    console.warn("Error finding chapter for location:", err);
+    return flattenTOC(toc)[0] || null;
+  }
+}
 
 /**
  * useEPubNavigation - Custom hook for ePub navigation
@@ -18,6 +64,7 @@ export function useEPubNavigation({
   onFontSizeChange,
 }) {
   const [currentLocation, setCurrentLocation] = useState(null);
+  const [currentChapter, setCurrentChapter] = useState(null);
   const [fontSize, setFontSize] = useState(initialFontSize);
   const [atStart, setAtStart] = useState(true);
   const [atEnd, setAtEnd] = useState(false);
@@ -183,10 +230,6 @@ export function useEPubNavigation({
     displayBook();
   }, [rendition, initialLocation, preferencesLoaded]);
 
-  // NOTE: Font size is now applied via EPubViewer using epubjs built-in
-  // theme methods (rendition.themes.fontSize, etc.) for all view settings.
-  // This hook no longer applies fontSize directly to avoid conflicts.
-
   // Listen for location changes
   useEffect(() => {
     if (!rendition) return;
@@ -200,6 +243,17 @@ export function useEPubNavigation({
       // Check if at start or end
       setAtStart(location.atStart || false);
       setAtEnd(location.atEnd || false);
+
+      // Determine current chapter (for TOC highlighting)
+      findChapterForLocation(location, toc, rendition)
+        .then((chapter) => {
+          if (isMountedRef.current) {
+            setCurrentChapter(chapter);
+          }
+        })
+        .catch((err) => {
+          console.warn("Error detecting chapter:", err);
+        });
 
       // Save location
       if (cfi) {
@@ -314,6 +368,7 @@ export function useEPubNavigation({
 
   return {
     currentLocation,
+    currentChapter,
     fontSize,
     atStart,
     atEnd,

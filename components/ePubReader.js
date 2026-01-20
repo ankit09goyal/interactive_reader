@@ -161,6 +161,7 @@ export default function EPubReader({
   } = useEPubTextSelection({
     rendition,
     currentChapter,
+    toc,
     showNotesModal,
     showQuestionModal,
     showSidebar: showQuestionsSidebar || showHighlightsSidebar,
