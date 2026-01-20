@@ -55,7 +55,7 @@ export default async function ReaderPage({ params }) {
   const { bookId } = await params;
 
   // Get book with access check
-  const result = await getBookWithAccess(bookId, session.user.id);
+  const result = await getBookWithAccess(bookId, session?.user.id);
 
   if (result.error === "forbidden") {
     return (
