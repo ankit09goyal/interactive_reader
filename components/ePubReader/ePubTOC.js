@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 
 /**
  * ePubTOC - Table of Contents sidebar for ePub reader
@@ -13,6 +13,23 @@ export default function EPubTOC({
   currentChapter,
   onNavigate,
 }) {
+  const activeItemRef = useRef(null);
+  const scrollContainerRef = useRef(null);
+
+  // Scroll to active item when TOC opens
+  useEffect(() => {
+    if (isOpen && activeItemRef.current && scrollContainerRef.current) {
+      // Small delay to ensure the DOM has rendered
+      const timeoutId = setTimeout(() => {
+        activeItemRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      }, 100);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [isOpen, currentChapter]);
+
   if (!isOpen) return null;
 
   return (
@@ -44,7 +61,7 @@ export default function EPubTOC({
         </div>
 
         {/* TOC List */}
-        <div className="flex-1 overflow-y-auto p-2">
+        <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-2">
           {toc.length === 0 ? (
             <div className="text-center py-8 text-base-content/50">
               No table of contents available
@@ -58,6 +75,7 @@ export default function EPubTOC({
                 onClose();
               }}
               level={0}
+              activeItemRef={activeItemRef}
             />
           )}
         </div>
@@ -69,7 +87,7 @@ export default function EPubTOC({
 /**
  * TOCList - Recursive component for rendering TOC items
  */
-function TOCList({ items, currentChapter, onNavigate, level = 0 }) {
+function TOCList({ items, currentChapter, onNavigate, level = 0, activeItemRef }) {
   return (
     <ul className={`space-y-1 ${level > 0 ? "ml-4" : ""}`}>
       {items.map((item, index) => (
@@ -79,6 +97,7 @@ function TOCList({ items, currentChapter, onNavigate, level = 0 }) {
           currentChapter={currentChapter}
           onNavigate={onNavigate}
           level={level}
+          activeItemRef={activeItemRef}
         />
       ))}
     </ul>
@@ -88,7 +107,7 @@ function TOCList({ items, currentChapter, onNavigate, level = 0 }) {
 /**
  * TOCItem - Individual TOC item with collapsible children
  */
-function TOCItem({ item, currentChapter, onNavigate, level }) {
+function TOCItem({ item, currentChapter, onNavigate, level, activeItemRef }) {
   const [isExpanded, setIsExpanded] = useState(true);
   const hasChildren = item.subitems && item.subitems.length > 0;
 
@@ -109,6 +128,7 @@ function TOCItem({ item, currentChapter, onNavigate, level }) {
   return (
     <li>
       <div
+        ref={isActive ? activeItemRef : null}
         className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors ${
           isActive ? "bg-primary/20 text-primary" : "hover:bg-base-200"
         }`}
@@ -152,6 +172,7 @@ function TOCItem({ item, currentChapter, onNavigate, level }) {
           currentChapter={currentChapter}
           onNavigate={onNavigate}
           level={level + 1}
+          activeItemRef={activeItemRef}
         />
       )}
     </li>
