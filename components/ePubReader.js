@@ -10,6 +10,7 @@ import { useEPubNavigation } from "./ePubReader/hooks/useEPubNavigation";
 import { useEPubTextSelection } from "./ePubReader/hooks/useEPubTextSelection";
 import { useEPubHighlights } from "./ePubReader/hooks/useEPubHighlights";
 import { useEPubQuestionHighlights } from "./ePubReader/hooks/useEPubQuestionHighlights";
+import { useEPubSuggestionHighlights } from "./ePubReader/hooks/useEPubSuggestionHighlights";
 import { useReadingAnalytics } from "@/libs/useReadingAnalytics";
 
 // Components
@@ -19,8 +20,10 @@ import EPubTOC from "./ePubReader/ePubTOC";
 import NotesModal from "./NotesModal";
 import TextSelectionMenu from "./TextSelectionMenu";
 import QuestionModal from "./QuestionModal";
+import SuggestionModal from "./SuggestionModal";
 import QuestionsSidebar from "./QuestionsSidebar";
 import HighlightsSidebar from "./HighlightsSidebar";
+import SuggestionsSidebar from "./SuggestionsSidebar";
 import PageViewSettingsSidebar from "./PageViewSettingsSidebar";
 
 // Default page view settings
@@ -48,16 +51,21 @@ export default function EPubReader({
   const [showTOC, setShowTOC] = useState(false);
   const [showQuestionsSidebar, setShowQuestionsSidebar] = useState(false);
   const [showHighlightsSidebar, setShowHighlightsSidebar] = useState(false);
+  const [showSuggestionsSidebar, setShowSuggestionsSidebar] = useState(false);
   const [showSettingsSidebar, setShowSettingsSidebar] = useState(false);
   const [showNotesModal, setShowNotesModal] = useState(false);
   const [showQuestionModal, setShowQuestionModal] = useState(false);
+  const [showSuggestionModal, setShowSuggestionModal] = useState(false);
   const [selectedHighlight, setSelectedHighlight] = useState(null);
+  const [editingSuggestion, setEditingSuggestion] = useState(null);
   const [sidebarRefreshTrigger, setSidebarRefreshTrigger] = useState(0);
   const [isNotesLoading, setIsNotesLoading] = useState(false);
   const [highlightedQuestionId, setHighlightedQuestionId] = useState(null);
   const [highlightedTextClicked, setHighlightedTextClicked] = useState(0);
   const [highlightedNoteId, setHighlightedNoteId] = useState(null);
   const [highlightedNoteClicked, setHighlightedNoteClicked] = useState(0);
+  const [highlightedSuggestionId, setHighlightedSuggestionId] = useState(null);
+  const [highlightedSuggestionClicked, setHighlightedSuggestionClicked] = useState(0);
 
   // Page view settings state (global user preferences)
   const [pageViewSettings, setPageViewSettings] = useState(
@@ -164,7 +172,7 @@ export default function EPubReader({
     toc,
     showNotesModal,
     showQuestionModal,
-    showSidebar: showQuestionsSidebar || showHighlightsSidebar,
+    showSidebar: showQuestionsSidebar || showHighlightsSidebar || showSuggestionsSidebar,
   });
 
   // Highlights
@@ -195,10 +203,27 @@ export default function EPubReader({
     refreshTrigger: sidebarRefreshTrigger,
     onHighlightClick: (questionId) => {
       setHighlightedQuestionId(questionId);
-      // Close highlights sidebar if open, open questions sidebar
+      // Close other sidebars if open, open questions sidebar
       setShowHighlightsSidebar(false);
+      setShowSuggestionsSidebar(false);
       setShowQuestionsSidebar(true);
       setHighlightedTextClicked((prev) => prev + 1);
+    },
+    fontSize: pageViewSettings.fontSize,
+  });
+
+  // Suggestion highlights (clickable)
+  const { highlights: suggestionHighlights } = useEPubSuggestionHighlights({
+    bookId,
+    rendition,
+    refreshTrigger: sidebarRefreshTrigger,
+    onHighlightClick: (suggestionId) => {
+      setHighlightedSuggestionId(suggestionId);
+      // Close other sidebars if open, open suggestions sidebar
+      setShowHighlightsSidebar(false);
+      setShowQuestionsSidebar(false);
+      setShowSuggestionsSidebar(true);
+      setHighlightedSuggestionClicked((prev) => prev + 1);
     },
     fontSize: pageViewSettings.fontSize,
   });
@@ -233,6 +258,16 @@ export default function EPubReader({
     setModalSelectionCfiRange(selectionCfiRange);
     setModalChapter(selectionChapter);
     setShowQuestionModal(true);
+  }, [selectedText, selectionCfi, selectionCfiRange, selectionChapter]);
+
+  // Handle suggesting improvement from selection menu
+  const handleSuggestImprovement = useCallback(() => {
+    setModalSelectedText(selectedText);
+    setModalSelectionCfi(selectionCfi);
+    setModalSelectionCfiRange(selectionCfiRange);
+    setModalChapter(selectionChapter);
+    setEditingSuggestion(null);
+    setShowSuggestionModal(true);
   }, [selectedText, selectionCfi, selectionCfiRange, selectionChapter]);
 
   // Handle adding notes from selection menu
@@ -395,6 +430,36 @@ export default function EPubReader({
     setSidebarRefreshTrigger((prev) => prev + 1);
   }, []);
 
+  // Handle suggestion created
+  const handleSuggestionCreated = useCallback(() => {
+    clearSelection();
+    setSidebarRefreshTrigger((prev) => prev + 1);
+    toast.success("Suggestion submitted successfully");
+  }, [clearSelection]);
+
+  // Handle suggestion updated
+  const handleSuggestionUpdated = useCallback(() => {
+    setSidebarRefreshTrigger((prev) => prev + 1);
+    toast.success("Suggestion updated successfully");
+  }, []);
+
+  // Handle suggestion deleted
+  const handleSuggestionDeleted = useCallback(() => {
+    setSidebarRefreshTrigger((prev) => prev + 1);
+  }, []);
+
+  // Handle edit suggestion from sidebar
+  const handleEditSuggestion = useCallback((suggestion) => {
+    setEditingSuggestion(suggestion);
+    setShowSuggestionModal(true);
+  }, []);
+
+  // Handle adding suggestion without text selection
+  const handleAddSuggestion = useCallback(() => {
+    setEditingSuggestion(null);
+    setShowSuggestionModal(true);
+  }, []);
+
   // Handle adding question without text selection
   const handleAddQuestion = useCallback(() => {
     setShowQuestionModal(true);
@@ -422,12 +487,15 @@ export default function EPubReader({
       setShowHighlightsSidebar(false);
       setHighlightedNoteId(null);
       setHighlightedNoteClicked(0);
+      setShowSuggestionsSidebar(false);
+      setHighlightedSuggestionId(null);
+      setHighlightedSuggestionClicked(0);
       setShowSettingsSidebar(false);
       setShowQuestionsSidebar(true);
     }
   }, [showQuestionsSidebar]);
 
-  // Toggle highlights sidebar (close questions sidebar if open)
+  // Toggle highlights sidebar (close other sidebars if open)
   const handleToggleHighlightsSidebar = useCallback(() => {
     if (showHighlightsSidebar) {
       // Close highlights sidebar
@@ -439,10 +507,33 @@ export default function EPubReader({
       setShowQuestionsSidebar(false);
       setHighlightedQuestionId(null);
       setHighlightedTextClicked(0);
+      setShowSuggestionsSidebar(false);
+      setHighlightedSuggestionId(null);
+      setHighlightedSuggestionClicked(0);
       setShowSettingsSidebar(false);
       setShowHighlightsSidebar(true);
     }
   }, [showHighlightsSidebar]);
+
+  // Toggle suggestions sidebar (close other sidebars if open)
+  const handleToggleSuggestionsSidebar = useCallback(() => {
+    if (showSuggestionsSidebar) {
+      // Close suggestions sidebar
+      setShowSuggestionsSidebar(false);
+      setHighlightedSuggestionId(null);
+      setHighlightedSuggestionClicked(0);
+    } else {
+      // Open suggestions sidebar, close other sidebars
+      setShowQuestionsSidebar(false);
+      setHighlightedQuestionId(null);
+      setHighlightedTextClicked(0);
+      setShowHighlightsSidebar(false);
+      setHighlightedNoteId(null);
+      setHighlightedNoteClicked(0);
+      setShowSettingsSidebar(false);
+      setShowSuggestionsSidebar(true);
+    }
+  }, [showSuggestionsSidebar]);
 
   // Toggle settings sidebar (close other sidebars if open)
   const handleToggleSettingsSidebar = useCallback(() => {
@@ -457,6 +548,9 @@ export default function EPubReader({
       setShowHighlightsSidebar(false);
       setHighlightedNoteId(null);
       setHighlightedNoteClicked(0);
+      setShowSuggestionsSidebar(false);
+      setHighlightedSuggestionId(null);
+      setHighlightedSuggestionClicked(0);
       setShowSettingsSidebar(true);
     }
   }, [showSettingsSidebar]);
@@ -527,6 +621,13 @@ export default function EPubReader({
     setHighlightedNoteClicked(0);
   }, []);
 
+  // Close suggestions sidebar
+  const handleCloseSuggestionsSidebar = useCallback(() => {
+    setShowSuggestionsSidebar(false);
+    setHighlightedSuggestionId(null);
+    setHighlightedSuggestionClicked(0);
+  }, []);
+
   return (
     <div className="flex flex-col w-full h-full bg-base-100 overflow-hidden">
       {/* Toolbar */}
@@ -538,6 +639,7 @@ export default function EPubReader({
         showTOC={showTOC}
         showQuestionsSidebar={showQuestionsSidebar}
         showHighlightsSidebar={showHighlightsSidebar}
+        showSuggestionsSidebar={showSuggestionsSidebar}
         showSettingsSidebar={showSettingsSidebar}
         bookId={bookId}
         isAdmin={isAdmin}
@@ -558,6 +660,7 @@ export default function EPubReader({
         onToggleTOC={() => setShowTOC(!showTOC)}
         onToggleQuestionsSidebar={handleToggleQuestionsSidebar}
         onToggleHighlightsSidebar={handleToggleHighlightsSidebar}
+        onToggleSuggestionsSidebar={handleToggleSuggestionsSidebar}
         onToggleSettingsSidebar={handleToggleSettingsSidebar}
         atStart={atStart}
         atEnd={atEnd}
@@ -599,6 +702,7 @@ export default function EPubReader({
             isEPub={true}
             onAddHighlight={handleAddHighlight}
             onAddNotes={handleAddNotes}
+            onSuggestImprovement={handleSuggestImprovement}
           />
         </div>
       )}
@@ -638,13 +742,39 @@ export default function EPubReader({
         />
       )}
 
+      {/* Suggestion Modal */}
+      {bookId && (
+        <SuggestionModal
+          isOpen={showSuggestionModal}
+          onClose={() => {
+            setShowSuggestionModal(false);
+            setEditingSuggestion(null);
+            setModalSelectedText(null);
+            setModalSelectionCfi(null);
+            setModalSelectionCfiRange(null);
+            setModalChapter(null);
+            clearSelection();
+          }}
+          selectedText={editingSuggestion ? null : (modalSelectedText || selectedText)}
+          epubCfi={editingSuggestion ? null : (modalSelectionCfi || selectionCfi)}
+          epubCfiRange={editingSuggestion ? null : (modalSelectionCfiRange || selectionCfiRange)}
+          epubChapter={editingSuggestion ? null : (modalChapter?.label || selectionChapter?.label)}
+          chapterHref={editingSuggestion ? null : (modalChapter?.href || selectionChapter?.href)}
+          bookId={bookId}
+          existingSuggestion={editingSuggestion}
+          onSuggestionCreated={handleSuggestionCreated}
+          onSuggestionUpdated={handleSuggestionUpdated}
+        />
+      )}
+
       {/* Sidebar Backdrop - closes sidebar when clicking outside */}
-      {(showQuestionsSidebar || showHighlightsSidebar) && (
+      {(showQuestionsSidebar || showHighlightsSidebar || showSuggestionsSidebar) && (
         <div
           className="fixed inset-0 bg-black/20 z-[140]"
           onClick={() => {
             if (showQuestionsSidebar) handleCloseQuestionsSidebar();
             if (showHighlightsSidebar) handleCloseHighlightsSidebar();
+            if (showSuggestionsSidebar) handleCloseSuggestionsSidebar();
           }}
         />
       )}
@@ -676,6 +806,23 @@ export default function EPubReader({
           onHighlightDeleted={handleDeleteHighlight}
           highlightedNoteId={highlightedNoteId}
           highlightedNoteClicked={highlightedNoteClicked}
+        />
+      )}
+
+      {/* Suggestions Sidebar */}
+      {bookId && (
+        <SuggestionsSidebar
+          isOpen={showSuggestionsSidebar}
+          onClose={handleCloseSuggestionsSidebar}
+          bookId={bookId}
+          onGoToPage={handleGoToLocation}
+          refreshTrigger={sidebarRefreshTrigger}
+          onAddSuggestion={handleAddSuggestion}
+          onEditSuggestion={handleEditSuggestion}
+          onSuggestionDeleted={handleSuggestionDeleted}
+          isEPub={true}
+          highlightedSuggestionId={highlightedSuggestionId}
+          highlightedTextClicked={highlightedSuggestionClicked}
         />
       )}
 

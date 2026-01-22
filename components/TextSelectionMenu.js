@@ -6,6 +6,7 @@ import icons from "@/libs/icons";
 /**
  * TextSelectionMenu - Floating menu that appears when user selects text in PDF/ePub
  * Shows "Ask Question" button for all users
+ * Shows "Suggest Improvements" button for all users (ePub only)
  * Shows "Create Public Q&A" button for admins
  * Shows "Add Highlight" button for ePub books only
  */
@@ -19,6 +20,7 @@ export default function TextSelectionMenu({
   isEPub = false,
   onAddHighlight,
   onAddNotes,
+  onSuggestImprovement,
 }) {
   const menuRef = useRef(null);
   const colorOptions = [
@@ -127,6 +129,19 @@ export default function TextSelectionMenu({
           </span>
           Ask Question
         </button>
+
+        {/* Suggest Improvements button - for all users (ePub only) */}
+        {onSuggestImprovement && (
+          <button
+            onClick={() => onSuggestImprovement(selectedText)}
+            className="btn btn-sm btn-ghost gap-2 justify-start"
+          >
+            <span className="h-4 w-4 flex items-center justify-center">
+              {icons.suggestion}
+            </span>
+            Suggest Improvements
+          </button>
+        )}
 
         {/* Create Public Q&A button - for admins only */}
         {isAdmin && (

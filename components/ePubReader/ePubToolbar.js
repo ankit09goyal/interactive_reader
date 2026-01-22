@@ -15,6 +15,7 @@ export default function EPubToolbar({
   showTOC,
   showQuestionsSidebar,
   showHighlightsSidebar,
+  showSuggestionsSidebar,
   showSettingsSidebar,
   bookId,
   isAdmin = false,
@@ -25,6 +26,7 @@ export default function EPubToolbar({
   onToggleTOC,
   onToggleQuestionsSidebar,
   onToggleHighlightsSidebar,
+  onToggleSuggestionsSidebar,
   onToggleSettingsSidebar,
   atStart,
   atEnd,
@@ -100,6 +102,19 @@ export default function EPubToolbar({
             title="Highlights & Notes"
           >
             {icons.highlight}
+          </button>
+        )}
+
+        {/* Suggestions Sidebar toggle */}
+        {bookId && (
+          <button
+            onClick={onToggleSuggestionsSidebar}
+            className={`btn btn-ghost btn-sm btn-square ml-2 ${
+              showSuggestionsSidebar ? "bg-primary/20" : ""
+            }`}
+            title="Suggest Improvements"
+          >
+            {icons.suggestion}
           </button>
         )}
 
