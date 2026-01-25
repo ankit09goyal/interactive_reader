@@ -17,6 +17,7 @@ import { useReadingAnalytics } from "@/libs/useReadingAnalytics";
 import EPubToolbar from "./ePubReader/ePubToolbar";
 import EPubViewer from "./ePubReader/ePubViewer";
 import EPubTOC from "./ePubReader/ePubTOC";
+import EPubSearchPanel from "./ePubReader/EPubSearchPanel";
 import NotesModal from "./NotesModal";
 import TextSelectionMenu from "./TextSelectionMenu";
 import QuestionModal from "./QuestionModal";
@@ -49,6 +50,8 @@ export default function EPubReader({
 }) {
   // UI state
   const [showTOC, setShowTOC] = useState(false);
+  const [showSearchPanel, setShowSearchPanel] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
   const [showQuestionsSidebar, setShowQuestionsSidebar] = useState(false);
   const [showHighlightsSidebar, setShowHighlightsSidebar] = useState(false);
   const [showSuggestionsSidebar, setShowSuggestionsSidebar] = useState(false);
@@ -560,6 +563,261 @@ export default function EPubReader({
     setShowSettingsSidebar(false);
   }, []);
 
+  // Toggle search panel
+  const handleToggleSearchPanel = useCallback(() => {
+    setShowSearchPanel((prev) => !prev);
+    // Close TOC if open
+    if (!showSearchPanel) {
+      setShowTOC(false);
+    }
+  }, [showSearchPanel]);
+
+  // Close search panel
+  const handleCloseSearchPanel = useCallback(() => {
+    setShowSearchPanel(false);
+  }, []);
+
+  // Ref to track current search highlight annotation
+  const searchHighlightRef = useRef(null);
+
+  // Helper function to extract a navigation CFI from a range CFI
+  // Range CFIs look like: epubcfi(/6/4!/4/2,/1:0,/1:5) - has comma-separated range parts
+  // Point CFIs look like: epubcfi(/6/4!/4/2/1:0)
+  const getNavigationCfi = useCallback((cfi) => {
+    if (!cfi) return null;
+    
+    // Check if this is a range CFI (contains commas after the base path)
+    // epub.js range CFI format: epubcfi(base,startOffset,endOffset)
+    const match = cfi.match(/^(epubcfi\([^,]+),/);
+    if (match) {
+      // It's a range CFI - extract just the base + start for navigation
+      // The format is epubcfi(/6/4!/4/2,/1:0,/1:5) where base=/6/4!/4/2
+      // For navigation, we can use the base path + first range part
+      const baseMatch = cfi.match(/^(epubcfi\()([^,]+),([^,]+),/);
+      if (baseMatch) {
+        // Construct point CFI from base + start offset
+        // base = /6/4!/4/2, startOffset = /1:0
+        // result = epubcfi(/6/4!/4/2/1:0)
+        const prefix = baseMatch[1]; // "epubcfi("
+        const basePath = baseMatch[2]; // "/6/4!/4/2"
+        const startOffset = baseMatch[3]; // "/1:0"
+        return `${prefix}${basePath}${startOffset})`;
+      }
+    }
+    // Already a point CFI or couldn't parse, return as-is
+    return cfi;
+  }, []);
+
+  // Navigate to search result and flash highlight the text using epub.js annotations
+  const handleNavigateToSearchResult = useCallback(
+    async (result, searchQuery) => {
+      if (!result || !rendition) return;
+
+      const { cfi, href } = result;
+
+      try {
+        // Remove any existing search highlight
+        if (searchHighlightRef.current) {
+          try {
+            rendition.annotations.remove(searchHighlightRef.current, "highlight");
+          } catch (e) {
+            // Ignore if removal fails
+          }
+          searchHighlightRef.current = null;
+        }
+
+        // Close the search panel
+        setShowSearchPanel(false);
+
+        // Log for debugging
+        console.log("Search navigation - CFI:", cfi, "Href:", href);
+
+        // Try to navigate using CFI first (for precise location), fall back to href
+        let navigationSucceeded = false;
+        let usedCfiNavigation = false;
+
+        // First try with the original CFI (epub.js should handle range CFIs)
+        if (cfi) {
+          try {
+            console.log("Trying original CFI navigation:", cfi);
+            await rendition.display(cfi);
+            navigationSucceeded = true;
+            usedCfiNavigation = true;
+            console.log("Original CFI navigation succeeded");
+          } catch (e) {
+            console.warn("Original CFI navigation failed:", e);
+            
+            // Try with converted point CFI
+            const navigationCfi = getNavigationCfi(cfi);
+            if (navigationCfi && navigationCfi !== cfi) {
+              try {
+                console.log("Trying converted CFI navigation:", navigationCfi);
+                await rendition.display(navigationCfi);
+                navigationSucceeded = true;
+                usedCfiNavigation = true;
+                console.log("Converted CFI navigation succeeded");
+              } catch (e2) {
+                console.warn("Converted CFI navigation also failed:", e2);
+              }
+            }
+          }
+        }
+
+        // If CFI navigation failed, fall back to href (will go to chapter start)
+        if (!navigationSucceeded && href) {
+          try {
+            console.log("Trying href navigation (fallback):", href);
+            await rendition.display(href);
+            navigationSucceeded = true;
+            console.log("Href navigation succeeded (at chapter start)");
+          } catch (e) {
+            console.warn("Href navigation failed:", e);
+          }
+        }
+
+        if (!navigationSucceeded) {
+          toast.error("Could not navigate to search result");
+          return;
+        }
+
+        // Wait for the page to render, then add a temporary highlight
+        setTimeout(() => {
+          try {
+            const contents = rendition.getContents();
+            
+            // Add flash highlight styles
+            contents.forEach((content) => {
+              const doc = content.document;
+              if (doc && !doc.getElementById("search-flash-style")) {
+                const styleEl = doc.createElement("style");
+                styleEl.id = "search-flash-style";
+                styleEl.textContent = `
+                  .search-flash-highlight {
+                    background-color: rgba(59, 130, 246, 0.5) !important;
+                    animation: searchFlash 2s ease-out forwards;
+                    border-radius: 2px;
+                  }
+                  .search-text-highlight {
+                    background-color: rgba(59, 130, 246, 0.5);
+                    animation: searchFlash 2s ease-out forwards;
+                    border-radius: 2px;
+                  }
+                  @keyframes searchFlash {
+                    0% { background-color: rgba(59, 130, 246, 0.6); }
+                    50% { background-color: rgba(59, 130, 246, 0.3); }
+                    100% { background-color: transparent; }
+                  }
+                `;
+                doc.head.appendChild(styleEl);
+              }
+            });
+
+            let highlightApplied = false;
+
+            // Try using epub.js annotations API if we used CFI navigation
+            if (usedCfiNavigation && cfi) {
+              try {
+                rendition.annotations.highlight(
+                  cfi,
+                  { searchQuery },
+                  null,
+                  "search-flash-highlight",
+                  { fill: "rgba(59, 130, 246, 0.5)" }
+                );
+                searchHighlightRef.current = cfi;
+                highlightApplied = true;
+                console.log("Annotation highlight applied successfully");
+
+                // Remove the highlight after 2 seconds
+                setTimeout(() => {
+                  try {
+                    if (searchHighlightRef.current === cfi) {
+                      rendition.annotations.remove(cfi, "highlight");
+                      searchHighlightRef.current = null;
+                    }
+                  } catch (e) {
+                    // Ignore removal errors
+                  }
+                }, 2000);
+              } catch (e) {
+                console.warn("Could not apply annotation highlight, trying text-based:", e);
+              }
+            }
+
+            // Fallback: use text-based highlighting if annotation failed
+            if (!highlightApplied && searchQuery) {
+              contents.forEach((content) => {
+                const doc = content.document;
+                if (!doc) return;
+
+                // Find the text in the document using window.find or manual search
+                const highlightId = `search-text-highlight-${Date.now()}`;
+                
+                // Use TreeWalker to find text nodes containing the search query
+                const walker = doc.createTreeWalker(
+                  doc.body,
+                  NodeFilter.SHOW_TEXT,
+                  null,
+                  false
+                );
+
+                let node;
+                let found = false;
+                while ((node = walker.nextNode()) && !found) {
+                  const text = node.textContent;
+                  const lowerText = text.toLowerCase();
+                  const lowerQuery = searchQuery.toLowerCase();
+                  const index = lowerText.indexOf(lowerQuery);
+
+                  if (index !== -1) {
+                    try {
+                      const range = doc.createRange();
+                      range.setStart(node, index);
+                      range.setEnd(node, index + searchQuery.length);
+
+                      const span = doc.createElement("span");
+                      span.className = "search-text-highlight";
+                      span.id = highlightId;
+                      
+                      range.surroundContents(span);
+                      found = true;
+                      highlightApplied = true;
+                      console.log("Text-based highlight applied");
+
+                      // Scroll the highlight into view
+                      span.scrollIntoView({ behavior: "smooth", block: "center" });
+
+                      // Remove after 2 seconds (just remove the span, keep text)
+                      setTimeout(() => {
+                        const el = doc.getElementById(highlightId);
+                        if (el && el.parentNode) {
+                          const parent = el.parentNode;
+                          while (el.firstChild) {
+                            parent.insertBefore(el.firstChild, el);
+                          }
+                          parent.removeChild(el);
+                          parent.normalize(); // Merge adjacent text nodes
+                        }
+                      }, 2100);
+                    } catch (e) {
+                      console.warn("Could not apply text highlight:", e);
+                    }
+                  }
+                }
+              });
+            }
+          } catch (e) {
+            console.warn("Could not apply search highlight:", e);
+          }
+        }, 300);
+      } catch (err) {
+        console.error("Failed to navigate to search result:", err);
+        toast.error("Failed to navigate to search result");
+      }
+    },
+    [rendition, getNavigationCfi]
+  );
+
   // Refs for debounced settings save
   const saveSettingsTimeoutRef = useRef(null);
   const pendingSettingsRef = useRef(null);
@@ -637,6 +895,7 @@ export default function EPubReader({
         isLoading={isLoading}
         fontSize={pageViewSettings.fontSize}
         showTOC={showTOC}
+        showSearchPanel={showSearchPanel}
         showQuestionsSidebar={showQuestionsSidebar}
         showHighlightsSidebar={showHighlightsSidebar}
         showSuggestionsSidebar={showSuggestionsSidebar}
@@ -658,6 +917,7 @@ export default function EPubReader({
           })
         }
         onToggleTOC={() => setShowTOC(!showTOC)}
+        onToggleSearchPanel={handleToggleSearchPanel}
         onToggleQuestionsSidebar={handleToggleQuestionsSidebar}
         onToggleHighlightsSidebar={handleToggleHighlightsSidebar}
         onToggleSuggestionsSidebar={handleToggleSuggestionsSidebar}
@@ -688,6 +948,24 @@ export default function EPubReader({
         currentChapter={currentChapter}
         onNavigate={goToChapter}
       />
+
+      {/* Search Panel */}
+      <EPubSearchPanel
+        isOpen={showSearchPanel}
+        onClose={handleCloseSearchPanel}
+        book={book}
+        onNavigateToResult={handleNavigateToSearchResult}
+        isSearching={isSearching}
+        setIsSearching={setIsSearching}
+      />
+
+      {/* Search Panel Backdrop */}
+      {showSearchPanel && (
+        <div
+          className="fixed inset-0 bg-black/20 z-[150]"
+          onClick={handleCloseSearchPanel}
+        />
+      )}
 
       {/* Text Selection Menu */}
       {selectionPosition && selectedText && (

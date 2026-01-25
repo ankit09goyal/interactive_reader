@@ -5,7 +5,7 @@ import icons from "@/libs/icons";
 
 /**
  * ePubToolbar - Toolbar component for ePub reader
- * Includes navigation, font size controls, and TOC toggle
+ * Includes navigation, font size controls, search, and TOC toggle
  */
 export default function EPubToolbar({
   title,
@@ -13,6 +13,7 @@ export default function EPubToolbar({
   isLoading,
   fontSize,
   showTOC,
+  showSearchPanel,
   showQuestionsSidebar,
   showHighlightsSidebar,
   showSuggestionsSidebar,
@@ -24,6 +25,7 @@ export default function EPubToolbar({
   onIncreaseFontSize,
   onDecreaseFontSize,
   onToggleTOC,
+  onToggleSearchPanel,
   onToggleQuestionsSidebar,
   onToggleHighlightsSidebar,
   onToggleSuggestionsSidebar,
@@ -52,6 +54,17 @@ export default function EPubToolbar({
           title="Table of Contents"
         >
           {icons.menu}
+        </button>
+
+        {/* Search toggle */}
+        <button
+          onClick={onToggleSearchPanel}
+          className={`btn btn-ghost btn-sm btn-square ${
+            showSearchPanel ? "bg-primary/20" : ""
+          }`}
+          title="Search Book"
+        >
+          {icons.search}
         </button>
       </div>
 
