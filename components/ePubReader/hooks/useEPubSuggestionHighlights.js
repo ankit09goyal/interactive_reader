@@ -1,8 +1,15 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import apiClient from "@/libs/api";
+import {
+  ICON_CONFIGS,
+  DEFAULT_HIGHLIGHT_STYLE,
+  setupHighlightRendering,
+  removeHighlightFromRendition,
+  filterHighlightsByValidRange,
+} from "@/libs/epubHighlightUtils";
 
 /**
  * useEPubSuggestionHighlights
@@ -21,10 +28,22 @@ export function useEPubSuggestionHighlights({
   const { data: session } = useSession();
   const currentUserId = session?.user?.id;
   const renditionRef = useRef(rendition);
+  // Track current highlights in a ref for use in callbacks without stale closures
+  const highlightsRef = useRef(highlights);
+  // Track callback in ref to avoid effect re-runs
+  const onHighlightClickRef = useRef(onHighlightClick);
 
   useEffect(() => {
     renditionRef.current = rendition;
   }, [rendition]);
+
+  useEffect(() => {
+    highlightsRef.current = highlights;
+  }, [highlights]);
+
+  useEffect(() => {
+    onHighlightClickRef.current = onHighlightClick;
+  }, [onHighlightClick]);
 
   // Fetch user's suggestions for highlighting
   useEffect(() => {
@@ -51,7 +70,7 @@ export function useEPubSuggestionHighlights({
         const mapped = suggestions.map((s) => ({
           id: s._id || s.id,
           text: s.selectedText,
-          cfi: s.epubCfiRange, // Use CFI range for highlighting
+          cfiRange: s.epubCfiRange, // Use cfiRange for consistency with other hooks
           suggestionId: s._id || s.id,
         }));
 
@@ -67,159 +86,75 @@ export function useEPubSuggestionHighlights({
     fetchHighlights();
   }, [bookId, currentUserId, refreshTrigger]);
 
-  // Render highlights into rendition
+  // Render highlights into rendition using common utility
   useEffect(() => {
     if (!renditionRef.current || highlights.length === 0) return;
 
-    const r = renditionRef.current;
-    const applied = [];
+    let isCancelled = false;
+    let cleanup = null;
 
-    // Function to add lightbulb icons to highlights (view-only)
-    const addSuggestionIcons = () => {
-      try {
-        const contents = r.getContents();
-        if (!contents || contents.length === 0) return;
+    const renderHighlights = async () => {
+      const validHighlights = await filterHighlightsByValidRange(
+        renditionRef.current,
+        highlights,
+        (h) => h.cfiRange
+      );
 
-        contents.forEach((content) => {
-          const doc = content.document;
-          if (!doc) return;
+      if (isCancelled || validHighlights.length === 0) return;
 
-          highlights.forEach((highlight) => {
-            // Check if icon already exists for this suggestion
-            const existingIcon = doc.querySelector(
-              `.suggestion-icon[data-suggestion-id="${highlight.id}"]`
-            );
-            if (existingIcon) return;
-
-            // Use the CFI to get the exact range in the document
-            if (!highlight.cfi) return;
-
-            try {
-              // Use epub.js to get the range from the CFI
-              const range = r.getRange(highlight.cfi);
-              if (!range) return; // Highlight may be on different page
-
-              // Create the suggestion icon span with inline SVG (view-only, not clickable)
-              const icon = doc.createElement("span");
-              icon.className = "suggestion-icon";
-              icon.setAttribute("data-suggestion-id", highlight.id);
-              icon.setAttribute(
-                "style",
-                `
-                display: inline-flex !important;
-                align-items: center !important;
-                justify-content: center !important;
-                width: 16px !important;
-                height: 16px !important;
-                min-width: 16px !important;
-                min-height: 16px !important;
-                margin-left: 2px !important;
-                vertical-align: top !important;
-                cursor: default !important;
-                position: relative !important;
-                z-index: 9999 !important;
-                visibility: visible !important;
-                opacity: 1 !important;
-                background-color: #0075de !important;
-                border-radius: 50% !important;
-              `
-              );
-              // Add lightbulb SVG icon (view-only indicator)
-              icon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"></path><path d="M10 22h4"></path><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"></path></svg>`;
-              icon.title = "You made a suggestion about this text";
-
-              // Icon is view-only (no click handler)
-
-              // Insert icon at the end of the range
-              const insertRange = range.cloneRange();
-              insertRange.collapse(false); // collapse to end
-              insertRange.insertNode(icon);
-            } catch (err) {
-              // Ignore errors for highlights not on current page
-            }
-          });
-        });
-      } catch (err) {
-        console.warn("Failed to add suggestion icons:", err);
-      }
-    };
-
-    // Event handler for when pages are displayed
-    const handleDisplayed = () => {
-      setTimeout(addSuggestionIcons, 150);
-    };
-
-    try {
-      highlights.forEach((h) => {
-        if (!h.cfi) return;
-        try {
-          r.annotations.add(
-            "highlight",
-            h.cfi,
-            {},
-            () => {
-              // Clickable highlight - opens sidebar and scrolls to suggestion
-              if (onHighlightClick) onHighlightClick(h.suggestionId);
-            },
-            `suggestion-${h.id}`,
-            {
-              fill: "rgba(255, 255, 0, 0.4)", // soft yellow (same as questions)
-              "fill-opacity": "0.35",
-              "mix-blend-mode": "multiply",
-            }
-          );
-          applied.push(h.cfi);
-        } catch (err) {
-          console.warn("Failed to add suggestion highlight:", err);
+      const { cleanup: localCleanup } = setupHighlightRendering(
+        renditionRef.current,
+        validHighlights,
+        {
+          type: "suggestion",
+          iconConfig: ICON_CONFIGS.suggestion,
+          getStyle: () => DEFAULT_HIGHLIGHT_STYLE,
+          onClick: (id) => {
+            // Clickable highlight - opens sidebar and scrolls to suggestion
+            if (onHighlightClickRef.current) onHighlightClickRef.current(id);
+          },
+          getCfiRange: (h) => h.cfiRange,
+          getId: (h) => h.id,
+          showIcons: true,
         }
-      });
+      );
 
-      // Add event listeners for page display
-      r.on("rendered", handleDisplayed);
-      r.on("displayed", handleDisplayed);
+      cleanup = localCleanup;
+    };
 
-      // Add suggestion icons after highlights are applied
-      setTimeout(addSuggestionIcons, 200);
-    } catch (err) {
-      console.error("Error applying EPUB suggestion highlights:", err);
-    }
+    renderHighlights();
 
     return () => {
-      // Remove event listeners
-      try {
-        r.off("rendered", handleDisplayed);
-        r.off("displayed", handleDisplayed);
-      } catch (err) {
-        // Ignore cleanup errors
-      }
-
-      // Remove suggestion icons
-      try {
-        const contents = r.getContents();
-        if (contents && contents.length > 0) {
-          contents.forEach((content) => {
-            const doc = content.document;
-            if (doc) {
-              const icons = doc.querySelectorAll(".suggestion-icon");
-              icons.forEach((icon) => icon.remove());
-            }
-          });
-        }
-      } catch (err) {
-        // Ignore cleanup errors
-      }
-
-      // Remove annotations
-      if (!r?.annotations) return;
-      applied.forEach((cfi) => {
-        try {
-          r.annotations.remove(cfi, "highlight");
-        } catch (err) {
-          // ignore cleanup errors
-        }
-      });
+      isCancelled = true;
+      if (cleanup) cleanup();
     };
-  }, [highlights, onHighlightClick, fontSize]);
+  }, [highlights, fontSize]);
 
-  return { highlights, isLoading };
+  /**
+   * Remove a suggestion highlight from the rendition (icon and annotation)
+   * Called when a suggestion is deleted elsewhere
+   * Directly removes annotation and icon, then updates state
+   */
+  const removeSuggestionHighlight = useCallback((suggestionId) => {
+    const currentRendition = renditionRef.current;
+    const currentHighlights = highlightsRef.current;
+    
+    // Find the highlight to get its CFI range
+    const highlight = currentHighlights.find((h) => h.id === suggestionId);
+    
+    // Use utility to remove annotation and icon directly
+    if (currentRendition && highlight) {
+      removeHighlightFromRendition(
+        currentRendition, 
+        suggestionId, 
+        highlight, 
+        ICON_CONFIGS.suggestion
+      );
+    }
+    
+    // Update local state to keep in sync
+    setHighlights((prev) => prev.filter((h) => h.id !== suggestionId));
+  }, []);
+
+  return { highlights, isLoading, removeSuggestionHighlight };
 }

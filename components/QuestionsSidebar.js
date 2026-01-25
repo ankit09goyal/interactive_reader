@@ -105,7 +105,9 @@ function QuestionCard({
   };
 
   // Check if question has a location to navigate to
-  const hasLocation = isEPub ? question.epubCfi : question.pageNumber;
+  const hasLocation = isEPub
+    ? question.epubCfi || question.epubCfiRange
+    : question.pageNumber;
 
   return (
     <div className={`rounded-lg p-3 border border-base-content/15`}>
@@ -282,8 +284,9 @@ export default function QuestionsSidebar({
     (question) => {
       if (onGoToPage) {
         // For ePub, use CFI location if available
-        if (isEPub && question.epubCfi) {
-          onGoToPage(question.epubCfi);
+        if (isEPub) {
+          const targetLocation = question.epubCfi || question.epubCfiRange;
+          if (targetLocation) onGoToPage(targetLocation);
         } else if (question.pageNumber) {
           onGoToPage(question.pageNumber);
         }
@@ -301,17 +304,16 @@ export default function QuestionsSidebar({
   const handleDeleteConfirm = async () => {
     if (!deleteModalQuestion) return;
 
+    const questionId = deleteModalQuestion._id || deleteModalQuestion.id;
     setIsDeleting(true);
     try {
-      await apiClient.delete(
-        `/user/questions/${deleteModalQuestion._id || deleteModalQuestion.id}`
-      );
+      await apiClient.delete(`/user/questions/${questionId}`);
       toast.success("Question deleted successfully");
       setDeleteModalQuestion(null);
       fetchQuestions();
-      // Notify parent to refresh highlights
+      // Notify parent to refresh highlights (pass ID for immediate icon removal)
       if (onQuestionDeleted) {
-        onQuestionDeleted();
+        onQuestionDeleted(questionId);
       }
     } catch (err) {
       console.error("Error deleting question:", err);

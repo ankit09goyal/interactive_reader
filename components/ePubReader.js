@@ -197,7 +197,7 @@ export default function EPubReader({
   });
 
   // Question highlights (clickable)
-  const { highlights: questionHighlights } = useEPubQuestionHighlights({
+  const { removeQuestionHighlight } = useEPubQuestionHighlights({
     bookId,
     rendition,
     refreshTrigger: sidebarRefreshTrigger,
@@ -213,7 +213,7 @@ export default function EPubReader({
   });
 
   // Suggestion highlights (clickable)
-  const { highlights: suggestionHighlights } = useEPubSuggestionHighlights({
+  const { removeSuggestionHighlight } = useEPubSuggestionHighlights({
     bookId,
     rendition,
     refreshTrigger: sidebarRefreshTrigger,
@@ -426,9 +426,13 @@ export default function EPubReader({
   }, [clearSelection]);
 
   // Handle question deleted
-  const handleQuestionDeleted = useCallback(() => {
+  const handleQuestionDeleted = useCallback((questionId) => {
+    // Remove icon and annotation immediately before state refresh
+    if (questionId) {
+      removeQuestionHighlight(questionId);
+    }
     setSidebarRefreshTrigger((prev) => prev + 1);
-  }, []);
+  }, [removeQuestionHighlight]);
 
   // Handle suggestion created
   const handleSuggestionCreated = useCallback(() => {
@@ -444,9 +448,12 @@ export default function EPubReader({
   }, []);
 
   // Handle suggestion deleted
-  const handleSuggestionDeleted = useCallback(() => {
-    setSidebarRefreshTrigger((prev) => prev + 1);
-  }, []);
+  const handleSuggestionDeleted = useCallback((suggestionId) => {
+    if (suggestionId) {
+      removeSuggestionHighlight(suggestionId);
+    }
+        setSidebarRefreshTrigger((prev) => prev + 1);
+  }, [removeSuggestionHighlight]);
 
   // Handle edit suggestion from sidebar
   const handleEditSuggestion = useCallback((suggestion) => {

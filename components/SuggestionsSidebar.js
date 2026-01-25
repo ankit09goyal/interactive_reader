@@ -121,7 +121,9 @@ function SuggestionCard({
   };
 
   // Check if suggestion has a location to navigate to
-  const hasLocation = isEPub ? suggestion.epubCfi : false;
+  const hasLocation = isEPub
+    ? suggestion.epubCfi || suggestion.epubCfiRange
+    : false;
 
   return (
     <div className="rounded-lg p-3 border border-base-content/15">
@@ -343,8 +345,9 @@ export default function SuggestionsSidebar({
     (suggestion) => {
       if (onGoToPage) {
         // For ePub, use CFI location if available
-        if (isEPub && suggestion.epubCfi) {
-          onGoToPage(suggestion.epubCfi);
+        if (isEPub) {
+          const targetLocation = suggestion.epubCfi || suggestion.epubCfiRange;
+          if (targetLocation) onGoToPage(targetLocation);
         }
       }
     },
@@ -370,6 +373,7 @@ export default function SuggestionsSidebar({
   const handleDeleteConfirm = async () => {
     if (!deleteModalSuggestion) return;
 
+    const suggestionId = deleteModalSuggestion._id || deleteModalSuggestion.id;
     setIsDeleting(true);
     try {
       await apiClient.delete(
@@ -378,9 +382,9 @@ export default function SuggestionsSidebar({
       toast.success("Suggestion deleted successfully");
       setDeleteModalSuggestion(null);
       fetchSuggestions();
-      // Notify parent to refresh highlights
+      // Notify parent to refresh highlights (pass ID for immediate icon removal)
       if (onSuggestionDeleted) {
-        onSuggestionDeleted();
+        onSuggestionDeleted(suggestionId);
       }
     } catch (err) {
       console.error("Error deleting suggestion:", err);

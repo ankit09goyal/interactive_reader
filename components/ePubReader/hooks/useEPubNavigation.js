@@ -80,6 +80,38 @@ export function useEPubNavigation({
   const isMountedRef = useRef(true);
   const hasDisplayedRef = useRef(false);
 
+  const isCfiString = useCallback((location) => {
+    if (typeof location !== "string") return false;
+    const trimmed = location.trim();
+    return trimmed.startsWith("epubcfi(") && trimmed.endsWith(")");
+  }, []);
+
+  const normalizeCfiLocation = useCallback(
+    (location) => {
+      if (!isCfiString(location)) return location;
+      if (location.includes(",")) {
+        return `${location.split(",")[0]})`;
+      }
+      return location;
+    },
+    [isCfiString]
+  );
+
+  const canResolveLocation = useCallback(
+    async (target) => {
+      if (!renditionRef.current || !target) return false;
+      if (!isCfiString(target)) return true;
+
+      try {
+        const range = await renditionRef.current.getRange(target);
+        return !!range;
+      } catch (err) {
+        return false;
+      }
+    },
+    [isCfiString]
+  );
+
   // Track mounted state
   useEffect(() => {
     isMountedRef.current = true;
@@ -210,7 +242,13 @@ export function useEPubNavigation({
     const displayBook = async () => {
       try {
         if (initialLocation) {
-          await rendition.display(initialLocation);
+          const normalizedLocation = normalizeCfiLocation(initialLocation);
+          const canResolve = await canResolveLocation(normalizedLocation);
+          if (canResolve) {
+            await rendition.display(normalizedLocation);
+          } else {
+            await rendition.display();
+          }
         } else {
           await rendition.display();
         }
@@ -228,7 +266,7 @@ export function useEPubNavigation({
     };
 
     displayBook();
-  }, [rendition, initialLocation, preferencesLoaded]);
+  }, [rendition, initialLocation, preferencesLoaded, normalizeCfiLocation, canResolveLocation]);
 
   // Listen for location changes
   useEffect(() => {
@@ -307,14 +345,35 @@ export function useEPubNavigation({
    * Go to a specific location (CFI or href)
    */
   const goToLocation = useCallback((location) => {
-    if (renditionRef.current && location) {
+    if (!renditionRef.current || !location) return;
+
+    const attemptDisplay = async (target) => {
+      if (!target || !renditionRef.current) return false;
+
       try {
-        renditionRef.current.display(location);
+        if (isCfiString(target)) {
+          const range = await renditionRef.current.getRange(target);
+          if (!range) return false;
+        }
+        await renditionRef.current.display(target);
+        return true;
       } catch (err) {
-        console.error("Failed to go to location:", err);
+        return false;
       }
-    }
-  }, []);
+    };
+
+    const normalizedLocation = normalizeCfiLocation(location);
+
+    void (async () => {
+      let didDisplay = await attemptDisplay(normalizedLocation);
+      if (!didDisplay && normalizedLocation !== location) {
+        didDisplay = await attemptDisplay(location);
+      }
+      if (!didDisplay) {
+        console.warn("Failed to display location:", location);
+      }
+    })();
+  }, [isCfiString, normalizeCfiLocation]);
 
   /**
    * Go to a chapter by href
